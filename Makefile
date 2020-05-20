@@ -2,12 +2,12 @@
 .PHONY : all
 all : img
 
-ipl.bin : ipl.asm
+harib00d.bin : harib00d.asm
 
 %.bin : %.asm
 	nasm $^ -o $@ -l $*.lst
 
-helloos.img : ipl.bin
+helloos.img : harib00d.bin
 	cat $^ > $@
 
 

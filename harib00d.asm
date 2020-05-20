@@ -17,6 +17,10 @@
 ; C0-H0-S1 : cylinder 0 - head 0 - sector 0
 ; > 0x00007c00 - 0x00007dff ： ブートセクタが読み込まれるアドレス
 ; > [ソフトウェア的用途区分 - (AT)memorymap - os-wiki](http://oswiki.osask.jp/?%28AT%29memorymap#qd4cd666)
+
+CYLS    EQU     10              ; どこまで読み込むか (CYLinderS)
+                                ; EQUal 定数宣言(nasm)
+
         ;=======================================================================
         ; このプログラムがメモリ上のどこによみこまれるのか
         ; > [7.1.1 ORG: Binary File Program Origin - NASM - The Netwide Assembler](https://www.nasm.us/doc/nasmdoc7.html#section-7.1.1)
@@ -188,7 +192,6 @@ entry:
         ;   > パーティション処理が必要なら自分でやるのだ.
         ;   > BIOSのせいだったかどうか忘れましたが,FDDのブートセクタをリードするとなぜか0x03～0x0aの8バイトの内容だけが正しく読み込まれません（変なごみが入っている）.
         ;   > I/Oを自分で制御してFDCをコントロールしたときはこんな変なことは起きません.
-        ;   ????なんもわからん????
         MOV     AX, 0x0820
         MOV     ES, AX          ; Buffer Address | ES:BXのES
                                 ; > 0x8000～0x81ffの512バイトにはあとでブートセクタの内容を入れようかなと思った
@@ -196,7 +199,7 @@ entry:
                                 ; > メモリマップを見たらこのへんは誰も使っていないようだったので、「はりぼてOS」
                                 ; > が使わせてもらうことにしました
 
-                                ; C0-H0-S2
+        ; C0-H0-S2
         MOV     CH, 0           ; シリンダ番号
         MOV     DH, 0           ; ヘッド番号
         MOV     CL, 2           ; セクタ番号
@@ -214,7 +217,7 @@ retry:
         MOV     DL, 0x00        ; ドライブ番号 Aドライブ
         INT     0x13            ; BIOS call -> エラーの時キャリーフラグが立つ
                                 ; [INT(0x13); ディスク関係 - (AT)BIOS - os-wiki](http://oswiki.osask.jp/?%28AT%29BIOS#q5006ed6)
-        JNC      fin            ; Jump if Not CARRY FLAG == 1
+        JNC     next            ; Jump if Not CARRY FLAG == 1
 
         ADD     SI, 1
         CMP     SI, 5
@@ -227,8 +230,9 @@ retry:
 
 next:
         ; 18セクタ(=18*512 Byte)を読み込む
-        ; C0-H0-S3 - C0-H0-S18
-        ; 512*17＝8,704 Byte
+        ; ディスクのうちの最初の10*2*18*512=184,320 Byte=180KB を読み込む
+        ; C0-H0-S3 - C9-H1-S18
+        ; メモリの 0x08200～0x34fff をディスクから読み込んだデータでびっしりと埋める
         ; メモリ番地0x8200～0xa3ffに読み込まれた
         ; > 　ループにする必要はなくて、ディスク読み込みのINT 0x13 のところで、ただALを17にしておけばすむのです
         ; > これをループにしたのは、ディスクBIOSの読み込みファンクション(*)の説明のところの「補足」のところを気にしたから
@@ -241,9 +245,22 @@ next:
                                 ; Buffer Register | ES:BX
                                 ; ES:BX | ES*0x10 + BX
                                 ; よって代わりにBXに512(=0x200)を足してもよい
+        ; セクタ SECTOR
         ADD     CL, 1           ; セクタ番号を1増やす
         CMP     CL, 18
-        JBE     readloop        ; if (CL <= 18) then jump to readloop
+        JBE     readloop        ; 18セクタまで読み込んでいなければreadloopへ
+
+        ; ヘッド HEAD
+        MOV     CL, 1           ; reset SECTOR
+        ADD     DH, 1           ; reverse HEAD
+        CMP     DH, 2
+        JB      readloop        ; if (DH < 2) つまり HEADが両面読み込み終えていなければreadloopへ
+
+        ; シリンダ Cylinder
+        MOV     DH, 0           ; reset HEAD
+        ADD     CH, 1           ; CYLINDER += 1
+        CMP     CH, CYLS        ; 定数CYLSと比較
+        JB      readloop        ; CYLS分のCYLINDERを読み込み終えていないならばreadloopへ
 
 fin:
         HLT
