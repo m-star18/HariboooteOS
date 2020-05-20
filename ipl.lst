@@ -204,63 +204,87 @@
    202 00000063 B102                            MOV     CL, 2           ; セクタ番号
    203                                  
    204 00000065 BE0000                          MOV     SI, 0           ; 失敗回数を数える
-   205                                  retry:
-   206                                          ; 失敗しても5回はドライブリセットを試す
-   207 00000068 B402                            MOV     AH, 0x02        ; INT 0x13での読み込み指定
-   208 0000006A B001                            MOV     AL, 1           ; 読み込む連続したセクタ数
-   209 0000006C BB0000                          MOV     BX, 0           ; Buffer Address | ES:BXのBX
-   210 0000006F B200                            MOV     DL, 0x00        ; ドライブ番号 Aドライブ
-   211 00000071 CD13                            INT     0x13            ; BIOS call -> エラーの時キャリーフラグが立つ
-   212                                                                  ; [INT(0x13); ディスク関係 - (AT)BIOS - os-wiki](http://oswiki.osask.jp/?%28AT%29BIOS#q5006ed6)
-   213 00000073 7310                            JNC      fin            ; Jump if Not CARRY FLAG == 1
-   214                                  
-   215 00000075 83C601                          ADD     SI, 1
-   216 00000078 83FE05                          CMP     SI, 5
-   217 0000007B 730B                            JAE     error           ; if SI >= 5 then jump to error
+   205                                  
+   206                                  readloop:
+   207 00000068 BE0000                          MOV     SI, 0           ; 失敗回数を数える
+   208                                  
+   209                                  retry:
+   210                                          ; 失敗しても5回はドライブリセットを試す
+   211 0000006B B402                            MOV     AH, 0x02        ; INT 0x13での読み込み指定
+   212 0000006D B001                            MOV     AL, 1           ; 読み込む連続したセクタ数
+   213 0000006F BB0000                          MOV     BX, 0           ; Buffer Address | ES:BXのBX
+   214 00000072 B200                            MOV     DL, 0x00        ; ドライブ番号 Aドライブ
+   215 00000074 CD13                            INT     0x13            ; BIOS call -> エラーの時キャリーフラグが立つ
+   216                                                                  ; [INT(0x13); ディスク関係 - (AT)BIOS - os-wiki](http://oswiki.osask.jp/?%28AT%29BIOS#q5006ed6)
+   217 00000076 731F                            JNC      fin            ; Jump if Not CARRY FLAG == 1
    218                                  
-   219 0000007D B400                            MOV     AH, 0x00
-   220 0000007F B200                            MOV     DL, 0x00        ; ドライブを指定
-   221 00000081 CD13                            INT     0x13            ; ドライブをリセット
-   222 00000083 EBE3                            JMP     retry
-   223                                  
-   224                                  fin:
-   225 00000085 F4                              HLT
-   226 00000086 EBFD                            JMP     fin             ; 無限ループ
+   219 00000078 83C601                          ADD     SI, 1
+   220 0000007B 83FE05                          CMP     SI, 5
+   221 0000007E 731A                            JAE     error           ; if SI >= 5 then jump to error
+   222                                  
+   223 00000080 B400                            MOV     AH, 0x00
+   224 00000082 B200                            MOV     DL, 0x00        ; ドライブを指定
+   225 00000084 CD13                            INT     0x13            ; ドライブをリセット
+   226 00000086 EBE3                            JMP     retry
    227                                  
-   228                                  error:
-   229 00000088 BE[9E00]                        MOV     SI, msg
-   230                                  
-   231                                  putloop:
-   232 0000008B 3E8A04                          MOV     AL, BYTE [DS:SI]; DS*0x10 + SI, DSを明示, ここではDS=0
-   233 0000008E 83C601                          ADD     SI, 1           ; increment stack index
-   234 00000091 3C00                            CMP     AL, 0           ; compare (<end msg>)
-   235 00000093 74F0                            JE      fin             ; jump to fin if equal to 0
-   236                                  
-   237                                                                  ; 一文字表示
-   238 00000095 B40E                            MOV     AH, 0x0e        ; AH = 0x0e
-   239 00000097 BB0F00                          MOV     BX, 15          ; BH = 0, BL = <color code>
-   240 0000009A CD10                            INT     0x10            ; interrupt BIOS
-   241                                                                  ; [INT(0x10); ビデオ関係 - (AT)BIOS - os-wiki](http://oswiki.osask.jp/?%28AT%29BIOS#n5884802)
-   242 0000009C EBED                            JMP     putloop
-   243                                  
-   244                                  msg:
-   245 0000009E 0A0A                            DB      0x0a, 0x0a
-   246 000000A0 6C6F6164206572726F-             DB      "load error"
-   246 000000A9 72                 
-   247 000000AA 0A                              DB      0x0a
-   248 000000AB 00                              DB      0                   ; end msg
-   249                                  
-   250                                          ;RESB    0x7dfe-($-$$)      ; これだとエラーが出た。。。
-   251                                                                      ; セクタサイズ 512 Byte なので 510 Byte目までを埋めたいときは
-   252                                                                      ; 0x1fe - ($-$$) としてやればいい
-   253                                                                      ; > you can tell how far into the section you are by using ($-$$)
-   254                                                                      ; > [3.5 Expressions - NASM - The Netwide Assembler](https://www.nasm.us/doc/nasmdoc3.html#section-3.5)
-   255 000000AC <res 00000152>                  RESB    0x1fe-($-$$)        ; 現在の場所から 0x1fd (0x1fe の直前)
-   255          ******************       warning: uninitialized space declared in .text section: zeroing
-   256                                                                      ; まで(残りの未使用領域)を0で埋める
-   257                                                                      ; (naskでは0で初期化するみたいだがnasm
-   258                                                                      ; だと初期化しない)
-   259                                  
-   260                                          ;=======================================================================
-   261                                          ; END BS_BootCode       ; Name             | Offset              | Byte | Description
-   262 000001FE 55AA                            DB      0x55, 0xaa      ; BS_BootSign      | 0x7dfe-0x7dff       | 510  |
+   228                                  next:
+   229                                          ; 18セクタ(=18*512 Byte)を読み込む
+   230                                          ; C0-H0-S3 - C0-H0-S18
+   231                                          ; 512*17＝8,704 Byte
+   232                                          ; メモリ番地0x8200～0xa3ffに読み込まれた
+   233                                          ; > 　ループにする必要はなくて、ディスク読み込みのINT 0x13 のところで、ただALを17にしておけばすむのです
+   234                                          ; > これをループにしたのは、ディスクBIOSの読み込みファンクション(*)の説明のところの「補足」のところを気にしたから
+   235                                          ; > > 処理するセクタ数は0x01～0xffの範囲で指定（0x02以上を指定するときは、連続処理できる条
+   236                                          ; > > 件があるかもしれないので注意-- FDの場合は、たぶん、複数のトラックにはまたがれないし、
+   237                                          ; > > 64KB境界をこえてもいけない、だと思います）
+   238 00000088 8CC0                            MOV     AX, ES          ; ADD ES,0x020 という命令がないのでこうしている
+   239 0000008A 83C020                          ADD     AX, 0x0020      ; 512 / 16 = 0x20
+   240 0000008D 8EC0                            MOV     ES, AX          ; 0x20だけアドレスを進める
+   241                                                                  ; Buffer Register | ES:BX
+   242                                                                  ; ES:BX | ES*0x10 + BX
+   243                                                                  ; よって代わりにBXに512(=0x200)を足してもよい
+   244 0000008F 80C101                          ADD     CL, 1           ; セクタ番号を1増やす
+   245 00000092 80F912                          CMP     CL, 18
+   246 00000095 76D1                            JBE     readloop        ; if (CL <= 18) then jump to readloop
+   247                                  
+   248                                  fin:
+   249 00000097 F4                              HLT
+   250 00000098 EBFD                            JMP     fin             ; 無限ループ
+   251                                  
+   252                                  error:
+   253 0000009A BE[B000]                        MOV     SI, msg
+   254                                  
+   255                                  putloop:
+   256 0000009D 3E8A04                          MOV     AL, BYTE [DS:SI]; DS*0x10 + SI, DSを明示, ここではDS=0
+   257 000000A0 83C601                          ADD     SI, 1           ; increment stack index
+   258 000000A3 3C00                            CMP     AL, 0           ; compare (<end msg>)
+   259 000000A5 74F0                            JE      fin             ; jump to fin if equal to 0
+   260                                  
+   261                                                                  ; 一文字表示
+   262 000000A7 B40E                            MOV     AH, 0x0e        ; AH = 0x0e
+   263 000000A9 BB0F00                          MOV     BX, 15          ; BH = 0, BL = <color code>
+   264 000000AC CD10                            INT     0x10            ; interrupt BIOS
+   265                                                                  ; [INT(0x10); ビデオ関係 - (AT)BIOS - os-wiki](http://oswiki.osask.jp/?%28AT%29BIOS#n5884802)
+   266 000000AE EBED                            JMP     putloop
+   267                                  
+   268                                  msg:
+   269 000000B0 0A0A                            DB      0x0a, 0x0a
+   270 000000B2 6C6F6164206572726F-             DB      "load error"
+   270 000000BB 72                 
+   271 000000BC 0A                              DB      0x0a
+   272 000000BD 00                              DB      0                   ; end msg
+   273                                  
+   274                                          ;RESB    0x7dfe-($-$$)      ; これだとエラーが出た。。。
+   275                                                                      ; セクタサイズ 512 Byte なので 510 Byte目までを埋めたいときは
+   276                                                                      ; 0x1fe - ($-$$) としてやればいい
+   277                                                                      ; > you can tell how far into the section you are by using ($-$$)
+   278                                                                      ; > [3.5 Expressions - NASM - The Netwide Assembler](https://www.nasm.us/doc/nasmdoc3.html#section-3.5)
+   279 000000BE <res 00000140>                  RESB    0x1fe-($-$$)        ; 現在の場所から 0x1fd (0x1fe の直前)
+   279          ******************       warning: uninitialized space declared in .text section: zeroing
+   280                                                                      ; まで(残りの未使用領域)を0で埋める
+   281                                                                      ; (naskでは0で初期化するみたいだがnasm
+   282                                                                      ; だと初期化しない)
+   283                                  
+   284                                          ;=======================================================================
+   285                                          ; END BS_BootCode       ; Name             | Offset              | Byte | Description
+   286 000001FE 55AA                            DB      0x55, 0xaa      ; BS_BootSign      | 0x7dfe-0x7dff       | 510  |
