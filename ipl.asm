@@ -1,4 +1,3 @@
-
 ; FAT12 format
 
 ; - [Tips　IA32（x86）命令一覧](http://softwaretechnique.jp/OS_Development/Tips/IA32_instructions.html)
@@ -202,13 +201,25 @@ entry:
         MOV     DH, 0           ; ヘッド番号
         MOV     CL, 2           ; セクタ番号
 
+        MOV     SI, 0           ; 失敗回数を数える
+retry:
+        ; 失敗しても5回はドライブリセットを試す
         MOV     AH, 0x02        ; INT 0x13での読み込み指定
         MOV     AL, 1           ; 読み込む連続したセクタ数
         MOV     BX, 0           ; Buffer Address | ES:BXのBX
         MOV     DL, 0x00        ; ドライブ番号 Aドライブ
         INT     0x13            ; BIOS call -> エラーの時キャリーフラグが立つ
                                 ; [INT(0x13); ディスク関係 - (AT)BIOS - os-wiki](http://oswiki.osask.jp/?%28AT%29BIOS#q5006ed6)
-        JC      error           ; Jump if CARRY FLAG == 1
+        JNC      fin            ; Jump if Not CARRY FLAG == 1
+
+        ADD     SI, 1
+        CMP     SI, 5
+        JAE     error           ; if SI >= 5 then jump to error
+
+        MOV     AH, 0x00
+        MOV     DL, 0x00        ; ドライブを指定
+        INT     0x13            ; ドライブをリセット
+        JMP     retry
 
 fin:
         HLT
