@@ -1,4 +1,3 @@
-
 .DEFAULT_GOAL : all
 .PHONY : all
 all : img
