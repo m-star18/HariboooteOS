@@ -1,4 +1,5 @@
 void HariMain(void) {
 fin:
-  goto fin;
+    io_hlt();
+    goto fin;
 }

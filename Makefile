@@ -2,6 +2,7 @@ OSNAME := haribooote
 ASMHEADNAME := asmhead
 IPLNAME := ipl10
 CNAME := bootpack
+NASMNAME := nasmfunc
 
 .DEFAULT_GOAL : all
 .PHONY : all
@@ -9,17 +10,22 @@ all : img
 
 ${IPLNAME}.bin : ${IPLNAME}.asm
 ${ASMHEADNAME}.bin : ${ASMHEADNAME}.asm
+${NASMNAME}.o : ${NASMNAME}.asm
+
 %.bin : %.asm
 	nasm $^ -o $@ -l $*.lst
 
-${CNAME}.hrb : ${CNAME}.c os.lds
-	gcc -fno-pie -no-pie -march=i486 -m32 -nostdlib -T os.lds ${CNAME}.c -o ${CNAME}.hrb
+%.o : %.asm
+	nasm -g -f elf $^ -o $@
+
+${CNAME}.hrb : ${CNAME}.c ${NASMNAME}.o os.lds
+	gcc -fno-pie -no-pie -march=i486 -m32 -nostdlib -T os.lds -g ${CNAME}.c ${NASMNAME}.o -o $@
 
 ${OSNAME}.sys : ${ASMHEADNAME}.bin ${CNAME}.hrb
 	cat $^ > $@
 
 ${OSNAME}.img : ${IPLNAME}.bin ${OSNAME}.sys
-# 1440KBのフロッピーディスクに書き込む
+# 1440KBのフロッピーデ大変ィスクに書き込む
 	mformat -f 1440 -C -B ${IPLNAME}.bin -i $@ ::
 # OS本体をイメージに書き込む
 	mcopy -i $@ ${OSNAME}.sys ::
@@ -41,7 +47,7 @@ run :
 #===============================================================================
 .PHONY : clean
 clean :
-	@rm *.img *.bin *.sys *.hrb
+	@rm *.img *.bin *.sys *.hrb *.o
 
 .PHONY : debug
 debug:
