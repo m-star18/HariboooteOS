@@ -224,7 +224,7 @@
    222                                  
    223 00000078 83C601                          ADD     SI, 1
    224 0000007B 83FE05                          CMP     SI, 5
-   225 0000007E 7331                            JAE     error           ; if SI >= 5 then jump to error
+   225 0000007E 7335                            JAE     error           ; if SI >= 5 then jump to error
    226                                  
    227 00000080 B400                            MOV     AH, 0x00
    228 00000082 B200                            MOV     DL, 0x00        ; ドライブを指定
@@ -265,50 +265,53 @@
    263 000000A6 80FD0A                          CMP     CH, CYLS        ; 定数CYLSと比較
    264 000000A9 72BD                            JB      readloop        ; CYLS分のCYLINDERを読み込み終えていないならばreadloopへ
    265                                  
-   266                                          ;=======================================================================
-   267                                          ; ブートセクタの読み込みが終わったのでOS本体を実行
-   268                                          ;JMP     0xc200
-   269 000000AB E9(00C2)                        JMP     OS_BODY
-   270                                          ;=======================================================================
-   271                                  
-   272                                  fin:
-   273 000000AE F4                              HLT
-   274 000000AF EBFD                            JMP     fin             ; 無限ループ
-   275                                  
-   276                                  error:
-   277 000000B1 BE[C700]                        MOV     SI, msg
+   266                                           ;=======================================================================
+   267 000000AB 882EF00F                        MOV     [0x0ff0], CH    ; IPLがどこまで読んだのかをメモ
+   268                                                                  ; CHがCYLINDERの番号を表す (最後にインクリメントされてから評価しているのでこの値は10)
+   269                                  
+   270                                          ; ブートセクタの読み込みが終わったのでOS本体を実行
+   271                                          ;JMP     0xc200
+   272 000000AF E9(00C2)                        JMP     OS_BODY
+   273                                          ;=======================================================================
+   274                                  
+   275                                  fin:
+   276 000000B2 F4                              HLT
+   277 000000B3 EBFD                            JMP     fin             ; 無限ループ
    278                                  
-   279                                  putloop:
-   280 000000B4 3E8A04                          MOV     AL, BYTE [DS:SI]; DS*0x10 + SI, DSを明示, ここではDS=0
-   281 000000B7 83C601                          ADD     SI, 1           ; increment stack index
-   282 000000BA 3C00                            CMP     AL, 0           ; compare (<end msg>)
-   283 000000BC 74F0                            JE      fin             ; jump to fin if equal to 0
-   284                                  
-   285                                                                  ; 一文字表示
-   286 000000BE B40E                            MOV     AH, 0x0e        ; AH = 0x0e
-   287 000000C0 BB0F00                          MOV     BX, 15          ; BH = 0, BL = <color code>
-   288 000000C3 CD10                            INT     0x10            ; interrupt BIOS
-   289                                                                  ; [INT(0x10); ビデオ関係 - (AT)BIOS - os-wiki](http://oswiki.osask.jp/?%28AT%29BIOS#n5884802)
-   290 000000C5 EBED                            JMP     putloop
-   291                                  
-   292                                  msg:
-   293 000000C7 0A0A                            DB      0x0a, 0x0a
-   294 000000C9 6C6F6164206572726F-             DB      "load error"
-   294 000000D2 72                 
-   295 000000D3 0A                              DB      0x0a
-   296 000000D4 00                              DB      0                   ; end msg
-   297                                  
-   298                                          ;RESB    0x7dfe-($-$$)      ; これだとエラーが出た。。。
-   299                                                                      ; セクタサイズ 512 Byte なので 510 Byte目までを埋めたいときは
-   300                                                                      ; 0x1fe - ($-$$) としてやればいい
-   301                                                                      ; > you can tell how far into the section you are by using ($-$$)
-   302                                                                      ; > [3.5 Expressions - NASM - The Netwide Assembler](https://www.nasm.us/doc/nasmdoc3.html#section-3.5)
-   303 000000D5 <res 00000129>                  RESB    0x1fe-($-$$)        ; 現在の場所から 0x1fd (0x1fe の直前)
-   303          ******************       warning: uninitialized space declared in .text section: zeroing
-   304                                                                      ; まで(残りの未使用領域)を0で埋める
-   305                                                                      ; (naskでは0で初期化するみたいだがnasm
-   306                                                                      ; だと初期化しない)
-   307                                  
-   308                                          ;=======================================================================
-   309                                          ; END BS_BootCode       ; Name             | Offset              | Byte | Description
-   310 000001FE 55AA                            DB      0x55, 0xaa      ; BS_BootSign      | 0x7dfe-0x7dff       | 510  |
+   279                                  error:
+   280 000000B5 BE[CB00]                        MOV     SI, msg
+   281                                  
+   282                                  putloop:
+   283 000000B8 3E8A04                          MOV     AL, BYTE [DS:SI]; DS*0x10 + SI, DSを明示, ここではDS=0
+   284 000000BB 83C601                          ADD     SI, 1           ; increment stack index
+   285 000000BE 3C00                            CMP     AL, 0           ; compare (<end msg>)
+   286 000000C0 74F0                            JE      fin             ; jump to fin if equal to 0
+   287                                  
+   288                                                                  ; 一文字表示
+   289 000000C2 B40E                            MOV     AH, 0x0e        ; AH = 0x0e
+   290 000000C4 BB0F00                          MOV     BX, 15          ; BH = 0, BL = <color code>
+   291 000000C7 CD10                            INT     0x10            ; interrupt BIOS
+   292                                                                  ; [INT(0x10); ビデオ関係 - (AT)BIOS - os-wiki](http://oswiki.osask.jp/?%28AT%29BIOS#n5884802)
+   293 000000C9 EBED                            JMP     putloop
+   294                                  
+   295                                  msg:
+   296 000000CB 0A0A                            DB      0x0a, 0x0a
+   297 000000CD 6C6F6164206572726F-             DB      "load error"
+   297 000000D6 72                 
+   298 000000D7 0A                              DB      0x0a
+   299 000000D8 00                              DB      0                   ; end msg
+   300                                  
+   301                                          ;RESB    0x7dfe-($-$$)      ; これだとエラーが出た。。。
+   302                                                                      ; セクタサイズ 512 Byte なので 510 Byte目までを埋めたいときは
+   303                                                                      ; 0x1fe - ($-$$) としてやればいい
+   304                                                                      ; > you can tell how far into the section you are by using ($-$$)
+   305                                                                      ; > [3.5 Expressions - NASM - The Netwide Assembler](https://www.nasm.us/doc/nasmdoc3.html#section-3.5)
+   306 000000D9 <res 00000125>                  RESB    0x1fe-($-$$)        ; 現在の場所から 0x1fd (0x1fe の直前)
+   306          ******************       warning: uninitialized space declared in .text section: zeroing
+   307                                                                      ; まで(残りの未使用領域)を0で埋める
+   308                                                                      ; (naskでは0で初期化するみたいだがnasm
+   309                                                                      ; だと初期化しない)
+   310                                  
+   311                                          ;=======================================================================
+   312                                          ; END BS_BootCode       ; Name             | Offset              | Byte | Description
+   313 000001FE 55AA                            DB      0x55, 0xaa      ; BS_BootSign      | 0x7dfe-0x7dff       | 510  |
