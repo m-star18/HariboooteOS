@@ -1,34 +1,33 @@
 OSNAME := haribooote
-FILENAME := ipl10
+ASMHEADNAME := asmhead
+IPLNAME := ipl10
+CNAME := bootpack
 
 .DEFAULT_GOAL : all
 .PHONY : all
 all : img
 
-${FILENAME}.bin : ${FILENAME}.asm
-${OSNAME}.sys : ${OSNAME}.asm
-
+${IPLNAME}.bin : ${IPLNAME}.asm
+${ASMHEADNAME}.bin : ${ASMHEADNAME}.asm
 %.bin : %.asm
 	nasm $^ -o $@ -l $*.lst
 
-%.sys : %.asm
-	nasm $^ -o $@ -l $*.lst
+${CNAME}.hrb : ${CNAME}.c os.lds
+	gcc -fno-pie -no-pie -march=i486 -m32 -nostdlib -T os.lds ${CNAME}.c -o ${CNAME}.hrb
 
-${OSNAME}.img : ${FILENAME}.bin ${OSNAME}.sys
-# mtools
-#  - [Mtools - Wikipedia](https://en.wikipedia.org/wiki/Mtools)
-#  - [2.2 Drive letters - Mtools 4.0.23](https://www.gnu.org/software/mtools/manual/mtools.html#drive-letters)
-#  - [mtoolsの使い方が知りたい - ITmedia エンタープライズ](http://www.itmedia.co.jp/help/tips/linux/l0317.html)
-#
+${OSNAME}.sys : ${ASMHEADNAME}.bin ${CNAME}.hrb
+	cat $^ > $@
+
+${OSNAME}.img : ${IPLNAME}.bin ${OSNAME}.sys
 # 1440KBのフロッピーディスクに書き込む
-	mformat -f 1440 -C -B ${FILENAME}.bin -i $@ ::
+	mformat -f 1440 -C -B ${IPLNAME}.bin -i $@ ::
 # OS本体をイメージに書き込む
 	mcopy -i $@ ${OSNAME}.sys ::
 
-
+#===============================================================================
 .PHONY : asm
 asm :
-	make ${FILENAME}.bin
+	make ${IPLNAME}.bin
 
 .PHONY : img
 img :
@@ -39,7 +38,12 @@ run :
 	make img
 	qemu-system-i386 -fda ${OSNAME}.img
 
+#===============================================================================
 .PHONY : clean
 clean :
-# lstは残しておいてもいいと思うのでcleanに入れていない
-	@rm *.img *.bin
+	@rm *.img *.bin *.sys *.hrb
+
+.PHONY : debug
+debug:
+	make img
+	qemu-system-i386 -fda ${OSNAME}.img -gdb tcp::10000 -S
