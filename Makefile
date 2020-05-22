@@ -19,7 +19,7 @@ ${NASMNAME}.o : ${NASMNAME}.asm
 	nasm -g -f elf $^ -o $@
 
 ${CNAME}.hrb : ${CNAME}.c ${NASMNAME}.o os.lds
-	gcc -fno-pie -no-pie -march=i486 -m32 -nostdlib -T os.lds -g ${CNAME}.c ${NASMNAME}.o -o $@
+	gcc -fno-pie -no-pie -march=i486 -m32 -nostdlib -g -O0 -T os.lds -g ${CNAME}.c ${NASMNAME}.o -o $@
 
 ${OSNAME}.sys : ${ASMHEADNAME}.bin ${CNAME}.hrb
 	cat $^ > $@
