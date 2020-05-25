@@ -29,26 +29,26 @@ void set_palette(int start, int end, unsigned char *rgb);
 
 void boxfill8(unsigned char *vram, int xsize, unsigned char c, int x0, int y0, int x1, int y1);
 
+struct BOOTINFO {
+    char cyls;
+    char leds;
+    char vmode;
+    char reserve;
+    short scrnx;
+    short scrny;
+    char *vram;
+};
+
 void HariMain(void) {
     char *vram;
 
-    int xsize;
-    int ysize;
-
-    short *binfo_scrnx, *binfo_scrny;
-    int *binfo_vram;
+    struct BOOTINFO *binfo;
 
     init_palette();
 
-    binfo_scrnx = (short *) 0x0ff4;
-    binfo_scrny = (short *) 0x0ff6;
-    binfo_vram = (int *) 0x0ff8;
+    binfo = (struct BOOTINFO *) 0xff0;
 
-    xsize = *binfo_scrnx;
-    ysize = *binfo_scrny;
-    vram = (char *) *binfo_vram;
-
-    init_screen(vram, xsize, ysize);
+    init_screen(binfo->vram, binfo->scrnx, binfo->scrny);
 
     for(;;)
         io_hlt();
