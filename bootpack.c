@@ -28,6 +28,7 @@ void init_screen(char *vram, int xsize, int ysize);
 
 void set_palette(int start, int end, unsigned char *rgb);
 
+void putfonts8_asc(char *vram, int xsize, int x, int y, char c, unsigned char *s);
 void putfont8(char *vram, int xsize, int x, int y, char c, char *font);
 void boxfill8(unsigned char *vram, int xsize, unsigned char c, int x0, int y0, int x1, int y1);
 
@@ -44,31 +45,27 @@ struct BOOTINFO {
 void HariMain(void) {
     char *vram;
 
-    struct BOOTINFO *binfo;
+    struct BOOTINFO *binfo = (struct BOOTINFO *) 0xff0;
 
-    static char font_A[] = {
-        0x00, 0x18, 0x18, 0x18, 0x18, 0x24, 0x24, 0x24,
-        0x24, 0x7e, 0x42, 0x42, 0x42, 0xa7, 0x00, 0x00
-    };
 
     init_palette();
-
-    binfo = (struct BOOTINFO *) 0xff0;
-
     init_screen(binfo->vram, binfo->scrnx, binfo->scrny);
 
-    putfont8(binfo->vram, binfo->scrnx, 10, 10, COL8_FFFFFF, hankaku + ('A' * 16));
-    putfont8(binfo->vram, binfo->scrnx, 20, 10, COL8_FFFFFF, hankaku + ('B' * 16));
-    putfont8(binfo->vram, binfo->scrnx, 30, 10, COL8_FFFFFF, hankaku + ('C' * 16));
-    putfont8(binfo->vram, binfo->scrnx, 40, 10, COL8_FFFFFF, hankaku + ('a' * 16));
-    putfont8(binfo->vram, binfo->scrnx, 50, 10, COL8_FFFFFF, hankaku + ('b' * 16));
-    putfont8(binfo->vram, binfo->scrnx, 60, 10, COL8_FFFFFF, hankaku + ('c' * 16));
-    putfont8(binfo->vram, binfo->scrnx, 70, 10, COL8_FFFFFF, hankaku + ('1' * 16));
-    putfont8(binfo->vram, binfo->scrnx, 80, 10, COL8_FFFFFF, hankaku + ('2' * 16));
-    putfont8(binfo->vram, binfo->scrnx, 90, 10, COL8_FFFFFF, hankaku + ('3' * 16));
+    putfonts8_asc(binfo->vram, binfo->scrnx, 8, 8, COL8_FFFFFF, "ABC 123");
+    putfonts8_asc(binfo->vram, binfo->scrnx, 31, 31, COL8_000000, "Haribooote OS.");
+    putfonts8_asc(binfo->vram, binfo->scrnx, 30, 30, COL8_FFFFFF, "Haribooote OS.");
 
     for(;;)
         io_hlt();
+}
+
+void putfonts8_asc(char *vram, int xsize, int x, int y, char c, unsigned char *s) {
+    extern char hankaku[4096];
+    while(*s != '\0') {
+        putfont8(vram, xsize, x, y, c, (hankaku + *s * 16));
+        x += 8;
+        s++;
+    }
 }
 
 void putfont8(char *vram, int xsize, int x, int y, char c, char *font) {
@@ -157,5 +154,4 @@ void set_palette(int start, int end, unsigned char *rgb) {
     }
 
     io_store_eflags(eflags); //割り込み許可フラグを戻す
-    return;
 }
