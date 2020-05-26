@@ -1,29 +1,28 @@
-IPL_LINK_SCRIPT=ipl.lds
-OS_LINK_SCRIPT=os.lds
+IPL_LINK_SCRIPT = ipl.lds
+OS_LINK_SCRIPT = os.lds
 
-IPL_SRC=ipl10.s
-OS_SRC=asmhead.s
-BOOTPACK_SRC=bootpack.c
-ASM_LIB_SRC=nasmfunc.s
-FONT_SRC=hankaku.s
+IPL_SRC = ipl10.s
+OS_SRC = asmhead.s
+BOOTPACK_SRC = bootpack.c
+ASM_LIB_SRC = nasmfunc.s
+FONT_BIN = hankaku.o
 
-TARGET_DIR=bin
-IPL_BIN=$(TARGET_DIR)/ipl.bin
-OS_BIN=$(TARGET_DIR)/asmhead.bin
-BOOTPACK_BIN=$(TARGET_DIR)/bootpack.bin
-ASM_LIB_BIN=$(TARGET_DIR)/nasmfunc.o
-FONT_BIN=$(TARGET_DIR)/hankaku.o
+TARGET_DIR = bin
+IPL_BIN = $(TARGET_DIR)/ipl.bin
+OS_BIN = $(TARGET_DIR)/asmhead.bin
+BOOTPACK_BIN = $(TARGET_DIR)/bootpack.bin
+ASM_LIB_BIN = $(TARGET_DIR)/nasmfunc.o
 
-SYSTEM_IMG=$(TARGET_DIR)/haribooote.sys
+SYSTEM_IMG = $(TARGET_DIR)/haribote.sys
 
-TARGET_IMG=$(TARGET_DIR)/haribooote.img
+TARGET_IMG = $(TARGET_DIR)/haribote.img
 
 #debug
-LIST_IPL=$(TARGET_DIR)/ipl.lst
-LIST_OS=$(TARGET_DIR)/os.lst
-LIST_ASM_LIB=$(TARGET_DIR)/nasmfunc.lst
+LIST_IPL = $(TARGET_DIR)/ipl.lst
+LIST_OS = $(TARGET_DIR)/os.lst
+LIST_ASM_LIB = $(TARGET_DIR)/nasmfunc.lst
 
-QEMU=qemu-system-x86_64
+QEMU = qemu-system-x86_64
 
 all: $(TARGET_IMG)
 
@@ -37,18 +36,15 @@ $(IPL_BIN): $(IPL_SRC) $(IPL_LINK_SCRIPT)
 	gcc -nostdlib -o $@ -T$(IPL_LINK_SCRIPT) $(IPL_SRC)
 	gcc -T $(IPL_LINK_SCRIPT) -c -g -Wa,-a,-ad $(IPL_SRC) -o bin/ipl.o > $(LIST_IPL)
 
-$(BOOTPACK_BIN): $(BOOTPACK_SRC) $(ASM_LIB_BIN) $(FONT_BIN)
+$(BOOTPACK_BIN): $(BOOTPACK_SRC) $(ASM_LIB_BIN) $(FONT_BIN) sprintf.c
 	mkdir -p $(TARGET_DIR)
 	gcc -fno-pie -no-pie -nostdlib -m32 -c -o bin/bootpack.o $(BOOTPACK_SRC)
-	ld -m elf_i386 -o $@ -T bootpack.lds -e HariMain --oformat=binary bin/bootpack.o $(ASM_LIB_BIN) $(FONT_BIN)
+	gcc -fno-pie -no-pie -nostdlib -m32 -c -o bin/sprintf.o sprintf.c
+	ld -m elf_i386 -o $@ -T bootpack.lds -e HariMain --oformat=binary bin/bootpack.o $(ASM_LIB_BIN) $(FONT_BIN) bin/sprintf.o
 
 $(ASM_LIB_BIN): $(ASM_LIB_SRC)
 	mkdir -p $(TARGET_DIR)
 	gcc -m32 -c -g -Wa,-a,-ad $(ASM_LIB_SRC) -o $(ASM_LIB_BIN) > $(LIST_ASM_LIB)
-
-$(FONT_BIN): $(FONT_SRC)
-	mkdir -p $(TARGET_DIR)
-	gcc -m32 -T .data -c -g -Wa,-a,-ad $(FONT_SRC) -o $@ > bin/hankaku.lst
 
 $(SYSTEM_IMG): $(OS_BIN) $(BOOTPACK_BIN)
 	cat $(OS_BIN) $(BOOTPACK_BIN) > $@
