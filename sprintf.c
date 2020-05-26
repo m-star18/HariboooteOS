@@ -7,13 +7,13 @@ void *sprintf(char *s, char *format, ...) {
 
     va_start(args, format);
 
-    while(*format != '\0') {
-        if(*format == '%') {
+    while (*format != '\0') {
+        if (*format == '%') {
             format++;
 
-            if(*format == 'd')
+            if (*format == 'd')
                 s += to_dec_asc(s, va_arg(args, int));
-            if(*format == 'x')
+            if (*format == 'x')
                 s += to_hex_asc(s, va_arg(args, int));
         }
         else {
@@ -35,7 +35,7 @@ unsigned int to_dec_asc(char *buf, int n) {
     ret = i;
     p = buf;
 
-    while(i > 0) {
+    while (i > 0) {
         *p = ((n / upow(10, i - 1)) % 10) + '0';
         p++;
         i--;
@@ -53,7 +53,7 @@ unsigned int to_hex_asc(char *buf, int n) {
     ret = i;
     p = buf;
 
-    while(i > 0) {
+    while (i > 0) {
         *p = charset[((n / upow(16, i - 1)) % 16)];
 
         p++;
@@ -66,7 +66,7 @@ unsigned int to_hex_asc(char *buf, int n) {
 unsigned int ndigit(unsigned int n) {
     unsigned i = 1;
 
-    while(n >= 10) {
+    while (n >= 10) {
         n /= 10;
         i++;
     }
@@ -74,7 +74,7 @@ unsigned int ndigit(unsigned int n) {
 }
 
 unsigned int upow(unsigned int x, unsigned int n) {
-    if(n == 0) return(1);
-    if(n == 1) return(x);
+    if (n == 0) return(1);
+    if (n == 1) return(x);
     return(x * upow(x, n-1));
 }
