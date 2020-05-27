@@ -7,9 +7,12 @@ void HariMain(void) {
     int mx;
     int my;
 
-    struct BOOTINFO *binfo = (struct BOOTINFO *) 0xff0;
+    struct BOOTINFO *binfo = (struct BOOTINFO *) ADR_BOOTINFO;
 
+    //GDT, IDTを初期化、PICを初期化、割り込みの受付を開始
     init_gdtidt();
+    init_pic();
+    io_sti();
 
     init_palette();
     init_screen(binfo->vram, binfo->scrnx, binfo->scrny);
@@ -27,6 +30,11 @@ void HariMain(void) {
 
     putfonts8_asc(binfo->vram, binfo->scrnx, 31, 31, COL8_000000, "Haribooote OS.");
     putfonts8_asc(binfo->vram, binfo->scrnx, 30, 30, COL8_FFFFFF, "Haribooote OS.");
+
+    //PIC1とキーボードを許可(11111001)
+    io_out8(PIC0_IMR, 0xf9);
+    //マウスを許可(11101111)
+    io_out8(PIC1_IMR, 0xef);
 
     for(;;)
         io_hlt();
