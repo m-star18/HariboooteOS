@@ -73,7 +73,9 @@ unsigned int ndigit(unsigned int n) {
 }
 
 unsigned int upow(unsigned int x, unsigned int n) {
-    if (n == 0) return(1);
-    if (n == 1) return(x);
+    if (n == 0)
+        return 1;
+    if (n == 1)
+        return x;
     return x * upow(x, n-1);
 }
