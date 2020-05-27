@@ -1,64 +1,72 @@
-IPL_LINK_SCRIPT = ipl.lds
-OS_LINK_SCRIPT = os.lds
+#Makefile
 
-IPL_SRC = ipl10.s
-OS_SRC = asmhead.s
-BOOTPACK_SRC = bootpack.c
-ASM_LIB_SRC = nasmfunc.s
-FONT_BIN = hankaku.o
+CC = gcc
+CFLAGS = -fno-pie -no-pie -nostdlib -m32
+INCLUDE = -I include
 
-TARGET_DIR = bin
-IPL_BIN = $(TARGET_DIR)/ipl.bin
-OS_BIN = $(TARGET_DIR)/asmhead.bin
-BOOTPACK_BIN = $(TARGET_DIR)/bootpack.bin
-ASM_LIB_BIN = $(TARGET_DIR)/nasmfunc.o
-
-SYSTEM_IMG = $(TARGET_DIR)/haribote.sys
-
-TARGET_IMG = $(TARGET_DIR)/haribote.img
-
-#debug
-LIST_IPL = $(TARGET_DIR)/ipl.lst
-LIST_OS = $(TARGET_DIR)/os.lst
-LIST_ASM_LIB = $(TARGET_DIR)/nasmfunc.lst
+LD = ld
+LFLAGS = -m elf_i386
 
 QEMU = qemu-system-x86_64
 
-all: $(TARGET_IMG)
+TARGET_DIR = bin
+LST_DIR = $(TARGET_DIR)/lst
+TMP_DIR = $(TARGET_DIR)/tmp
 
-$(OS_BIN): $(OS_SRC) $(OS_LINK_SCRIPT)
+OS_SRC_DIR = src
+OS_SRC=$(wildcard $(OS_SRC_DIR)/*.c)
+OS_LS = scripts/bootpack.lds
+OS = $(TARGET_DIR)/os.bin
+
+OS_ENTRY_POINT = HariMain
+
+SYSTEM_IMG = bin/haribooote.bin
+
+ASMLIB_SRC = src/asm/asm_func.s
+ASMLIB = $(TARGET_DIR)/asm_func.o
+
+BINLIB = lib/hankaku.o
+
+IPL_SRC = src/asm/boot/ipl10.s
+IPL_LS = scripts/ipl.lds
+IPL = $(TARGET_DIR)/ipl10.bin
+
+OSL_SRC = src/asm/boot/asmhead.s
+OSL_LS = scripts/asmhead.lds
+OSL = $(TARGET_DIR)/asmhead.bin
+
+IMG = $(TARGET_DIR)/haribooote.img
+
+all: $(IMG)
+
+$(IMG): $(IPL) $(OSL) $(OS)
+	cat $(OSL) $(OS) > $(SYSTEM_IMG)
+	mformat -f 1440 -B $(IPL) -C -i $(IMG) ::
+	mcopy $(SYSTEM_IMG) -i $(IMG) ::
+
+$(OS): $(addprefix $(TARGET_DIR)/, $(notdir $(OS_SRC:.c=.o))) $(ASMLIB) $(BINLIB)
+	ld $(LFLAGS) -o $@ -T $(OS_LS) -e HariMain --oformat=binary $^
+
+$(ASMLIB): $(ASMLIB_SRC)
+	$(CC) $(CFLAGS) -c -g -Wa,-a,-ad $< -o $@ > $(addprefix $(LST_DIR)/, $(notdir $(@F:.o=.lst)))
+
+$(TARGET_DIR)/%.o : $(OS_SRC_DIR)/%.c
+	$(CC) $(CFLAGS) $(INCLUDE) -nostdlib -m32 -c -o $@ $<
+
+$(IPL): $(IPL_SRC)
 	mkdir -p $(TARGET_DIR)
-	gcc -nostdlib -o $@ -T$(OS_LINK_SCRIPT) $(OS_SRC)
-	gcc -T $(OS_LINK_SCRIPT) -c -g -Wa,-a,-ad $(OS_SRC) -o bin/os.o > $(LIST_OS)
+	mkdir -p $(LST_DIR)
+	mkdir -p $(TMP_DIR)
+	gcc $(CFLAGS) -o $@ -T$(IPL_LS) $(IPL_SRC)
 
-$(IPL_BIN): $(IPL_SRC) $(IPL_LINK_SCRIPT)
-	mkdir -p $(TARGET_DIR)
-	gcc -nostdlib -o $@ -T$(IPL_LINK_SCRIPT) $(IPL_SRC)
-	gcc -T $(IPL_LINK_SCRIPT) -c -g -Wa,-a,-ad $(IPL_SRC) -o bin/ipl.o > $(LIST_IPL)
+$(OSL): $(OSL_SRC)
+	$(CC) $(CFLAGS) -o $@ -T $(OSL_LS) $(OSL_SRC)
+	$(CC) $(CFLAGS) -o $(addprefix $(TMP_DIR)/, $(notdir $(@F:.s=.o))) -T $(OSL_LS) -c -g -Wa,-a,-ad $(OSL_SRC) > $(addprefix $(LST_DIR)/, $(notdir $(@F:.bin=.lst)))
 
-$(BOOTPACK_BIN): $(BOOTPACK_SRC) $(ASM_LIB_BIN) $(FONT_BIN) sprintf.c
-	mkdir -p $(TARGET_DIR)
-	gcc -fno-pie -no-pie -nostdlib -m32 -c -o bin/bootpack.o $(BOOTPACK_SRC)
-	gcc -fno-pie -no-pie -nostdlib -m32 -c -o bin/sprintf.o sprintf.c
-	ld -m elf_i386 -o $@ -T bootpack.lds -e HariMain --oformat=binary bin/bootpack.o $(ASM_LIB_BIN) $(FONT_BIN) bin/sprintf.o
+run: all
+	$(QEMU) -m 32 -drive format=raw,file=$(IMG),if=floppy
 
-$(ASM_LIB_BIN): $(ASM_LIB_SRC)
-	mkdir -p $(TARGET_DIR)
-	gcc -m32 -c -g -Wa,-a,-ad $(ASM_LIB_SRC) -o $(ASM_LIB_BIN) > $(LIST_ASM_LIB)
-
-$(SYSTEM_IMG): $(OS_BIN) $(BOOTPACK_BIN)
-	cat $(OS_BIN) $(BOOTPACK_BIN) > $@
-
-$(TARGET_IMG): $(SYSTEM_IMG) $(IPL_BIN)
-	#イメージ作成、IPLをブートセクタに配置
-	mformat -f 1440 -B $(IPL_BIN) -C -i $(TARGET_IMG) ::
-	#OSのプログラムをイメージにコピーする
-	mcopy $(SYSTEM_IMG) -i $(TARGET_IMG) ::
-
-run: $(TARGET_IMG)
-	$(QEMU) -m 32 -drive format=raw,file=$(TARGET_IMG),if=floppy
-
-debug:all
+debug: all
 	$(QEMU) -drive format=raw,file=$(TARGET_IMG),if=floppy -gdb tcp::10000 -S
 
 clean:

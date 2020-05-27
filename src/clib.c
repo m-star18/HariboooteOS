@@ -1,5 +1,4 @@
-#include <stdarg.h>
-#include "sprintf.h"
+#include "bootpack.h"
 
 void *sprintf(char *s, char *format, ...) {
     va_list args;
@@ -40,7 +39,7 @@ unsigned int to_dec_asc(char *buf, int n) {
         p++;
         i--;
     }
-    return(ret);
+    return ret;
 }
 
 unsigned int to_hex_asc(char *buf, int n) {
@@ -59,7 +58,7 @@ unsigned int to_hex_asc(char *buf, int n) {
         p++;
         i--;
     }
-    return(ret);
+    return ret;
 }
 
 
@@ -70,11 +69,13 @@ unsigned int ndigit(unsigned int n) {
         n /= 10;
         i++;
     }
-    return(i);
+    return i;
 }
 
 unsigned int upow(unsigned int x, unsigned int n) {
-    if (n == 0) return(1);
-    if (n == 1) return(x);
-    return(x * upow(x, n-1));
+    if (n == 0)
+        return 1;
+    if (n == 1)
+        return x;
+    return x * upow(x, n-1);
 }
