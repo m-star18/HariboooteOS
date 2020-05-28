@@ -117,17 +117,28 @@ void putblock8_8(char *vram, int vxsize, int pxsize, int pysize, int px0, int py
 
 #define KEYBUF_SIZE 32
 
-struct KEYBUF {
-    unsigned char data[KEYBUF_SIZE];
-    int next_r;
-    int next_w;
-    int len;
-};
-
 void init_pic(void);
 void inthandler21(int *esp);
 void inthandler2c(int *esp);
 void inthandler27(int *esp);
 
-extern struct KEYBUF keybuf;
+extern struct FIFO8 keyfifo;
+
+//fifo.c
+#define FLAGS_OVERRUN 0x0001
+
+struct FIFO8 {
+    unsigned char *buf;
+    int p;
+    int q;
+    int size;
+    int free;
+    int flags;
+};
+
+void fifo8_init(struct FIFO8 *fifo, int size, unsigned char *buf);
+int fifo8_put(struct FIFO8 *fifo, unsigned char data);
+int fifo8_get(struct FIFO8 *fifo);
+int fifo8_status(struct FIFO8 *fifo);
+
 #endif

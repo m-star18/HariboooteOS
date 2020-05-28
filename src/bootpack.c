@@ -4,6 +4,7 @@ void HariMain(void) {
     char *vram;
     char str[32] = {0};
     char mcursor[16 * 16];
+    char keybuf[KEYBUF_SIZE];
     int mx, my;
     int i, j;
 
@@ -16,6 +17,8 @@ void HariMain(void) {
 
     init_palette();
     init_screen(binfo->vram, binfo->scrnx, binfo->scrny);
+
+    fifo8_init(&keyfifo, sizeof(keybuf), keybuf);
 
     init_mouse_cursor8(mcursor, COL8_008484);
     mx = (binfo->scrnx - 16) / 2;
@@ -38,21 +41,20 @@ void HariMain(void) {
 
     for (;;) {
         io_cli();
-
-        if (keybuf.len == 0)
+        if (fifo8_status(&keyfifo) == 0)
             io_stihlt();
         else {
-            i = keybuf.data[keybuf.next_r];
-            keybuf.len--;
-            keybuf.next_r++;
-
-            keybuf.next_r %= KEYBUF_SIZE;
+            i = fifo8_get(&keyfifo);
 
             io_sti();
             _sprintf(str, "%02X", i);
 
             boxfill8(binfo->vram, binfo->scrnx, COL8_008484, 0, 16, 15, 31);
             putfonts8_asc(binfo->vram, binfo->scrnx, 0, 16, COL8_FFFFFF, str);
+
+            _sprintf(str, "keybuf(r,w) = (%d : %d)", keyfifo.q, keyfifo.p);
+            boxfill8(binfo->vram, binfo->scrnx, COL8_008484, 0, 92, binfo->scrnx, 107);
+            putfonts8_asc(binfo->vram, binfo->scrnx, 0, 92, COL8_FFFFFF, str);
         }
     }
 }
