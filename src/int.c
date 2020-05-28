@@ -36,22 +36,27 @@ void init_pic() {
 //キーボード割り込み
 void inthandler21(int *esp) {
     struct BOOTINFO *binfo = (struct BOOTINFO *) ADR_BOOTINFO;
+    unsigned char data;
+    unsigned char s[128];
 
-    boxfill8(binfo->vram, binfo->scrnx, COL8_000000, 0, 0, 32 * 8 -1, 15);
-    putfonts8_asc(binfo->vram, binfo->scrnx, 0, 0, COL8_FFFFFF, "INT 21 (ORQ-1) : PS2 keyboard");
+    //IRQ-01に受付完了を通知
+    io_out8(PIC0_OCW2, 0x61);
+    data = io_in8(PORT_KEYDAT);
 
-    for(;;)
-        io_hlt();
+    //data = 0x5f;
+    //sprintf(s, "%03d, %04d, 0x%02x, 0x%03X", data, data, data, data, data);
+    sprintf(s, "%02X", data);
+
+    boxfill8(binfo->vram, binfo->scrnx, COL8_008484, 0, 16, 15, 31);
+    putfonts8_asc(binfo->vram, binfo->scrnx, 0, 16, COL8_FFFFFF, s);
 }
 
 //マウス割り込み
 void inthandler2c(int *esp) {
     struct BOOTINFO *binfo = (struct BOOTINFO *) ADR_BOOTINFO;
-
     boxfill8(binfo->vram, binfo->scrnx, COL8_000000, 0, 0, 32 * 8 -1, 15);
     putfonts8_asc(binfo->vram, binfo->scrnx, 0, 0, COL8_FFFFFF, "INT 2C (IRQ-12) : PS/2 mouse");
-
-    for(;;)
+    for (;;)
         io_hlt();
 }
 

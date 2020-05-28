@@ -5,6 +5,9 @@
 
 #define ADR_BOOTINFO 0x00000ff0
 
+#define TRUE 1
+#define FALSE 0
+
 struct BOOTINFO {
     char cyls;
     char leds;
@@ -20,6 +23,7 @@ void io_hlt(void);
 void io_cli(void);
 void io_sti(void);
 void io_out8(int port, int data);
+int io_in8(int port);
 int io_load_eflags(void);
 void io_store_eflags(int eflags);
 void asm_inthandler21(void);
@@ -29,9 +33,15 @@ void asm_inthandler27(void);
 //clib.c
 void *sprintf(char *s, char *format, ...);
 unsigned int to_dec_asc(char *buf, int n);
-unsigned int to_hex_asc(char *buf, int n);
-unsigned int ndigit(unsigned int n);
+unsigned int to_hex_asc(char *buf, int n, int capital);
+unsigned int ndigit(unsigned int n, unsigned int base);
 unsigned int upow(unsigned int x, unsigned int n);
+void upcase(char *str, unsigned int n);
+int iscapital(char c);
+int atoi(char *s);
+int isdigit(char c);
+char *memcpy(char *buf1, char *buf2, int n);
+int memset(char *buf, char byte, int n);
 
 //dsctbl.c
 #define ADR_IDT 0x0026f800
@@ -116,6 +126,8 @@ void putblock8_8(char *vram, int vxsize, int pxsize, int pysize, int px0, int py
 #define PIC1_ICW2 0x00a1
 #define PIC1_ICW3 0x00a1
 #define PIC1_ICW4 0x00a1
+
+#define PORT_KEYDAT 0x0060
 
 void init_pic(void);
 void inthandler21(int *esp);
