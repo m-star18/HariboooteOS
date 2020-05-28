@@ -119,7 +119,9 @@ void putblock8_8(char *vram, int vxsize, int pxsize, int pysize, int px0, int py
 
 struct KEYBUF {
     unsigned char data[KEYBUF_SIZE];
-    int next;
+    int next_r;
+    int next_w;
+    int len;
 };
 
 void init_pic(void);

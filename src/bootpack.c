@@ -39,13 +39,14 @@ void HariMain(void) {
     for (;;) {
         io_cli();
 
-        if (keybuf.next == 0)
+        if (keybuf.len == 0)
             io_stihlt();
         else {
-            i = keybuf.data[0];
-            keybuf.next--;
-            for (j = 0; j < keybuf.next; j++)
-                keybuf.data[j] = keybuf.data[j + 1];
+            i = keybuf.data[keybuf.next_r];
+            keybuf.len--;
+            keybuf.next_r++;
+
+            keybuf.next_r %= KEYBUF_SIZE;
 
             io_sti();
             _sprintf(str, "%02X", i);
