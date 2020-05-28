@@ -2,6 +2,7 @@
 #define BOOTPACK_H
 
 #include <stdarg.h>
+#include "stdlibc.h"
 
 #define ADR_BOOTINFO 0x00000ff0
 
@@ -19,19 +20,14 @@ struct BOOTINFO {
 void io_hlt(void);
 void io_cli(void);
 void io_sti(void);
+void io_stihlt(void);
 void io_out8(int port, int data);
+int io_in8(int port);
 int io_load_eflags(void);
 void io_store_eflags(int eflags);
 void asm_inthandler21(void);
 void asm_inthandler2c(void);
 void asm_inthandler27(void);
-
-//clib.c
-void *sprintf(char *s, char *format, ...);
-unsigned int to_dec_asc(char *buf, int n);
-unsigned int to_hex_asc(char *buf, int n);
-unsigned int ndigit(unsigned int n);
-unsigned int upow(unsigned int x, unsigned int n);
 
 //dsctbl.c
 #define ADR_IDT 0x0026f800
@@ -117,9 +113,41 @@ void putblock8_8(char *vram, int vxsize, int pxsize, int pysize, int px0, int py
 #define PIC1_ICW3 0x00a1
 #define PIC1_ICW4 0x00a1
 
+#define PORT_KEYDAT 0x0060
+#define PORT_KEYSTA 0x0064
+#define PORT_KEYCMD 0x0064
+#define KEYSTA_SEND_NOTREADY 0x02
+#define KEYCMD_WRITE_MODE 0x60
+#define KBC_MODE 0x47
+#define KEYCMD_SENDTO_MOUSE 0xd4
+#define MOUSECMD_ENABLE 0xf4
+
+#define KEYBUF_SIZE 32
+#define MOUSEBUF_SIZE 128
+
 void init_pic(void);
 void inthandler21(int *esp);
 void inthandler2c(int *esp);
 void inthandler27(int *esp);
+
+extern struct FIFO8 keyfifo;
+extern struct FIFO8 mousefifo;
+
+//fifo.c
+#define FLAGS_OVERRUN 0x0001
+
+struct FIFO8 {
+    unsigned char *buf;
+    int p;
+    int q;
+    int size;
+    int free;
+    int flags;
+};
+
+void fifo8_init(struct FIFO8 *fifo, int size, unsigned char *buf);
+int fifo8_put(struct FIFO8 *fifo, unsigned char data);
+int fifo8_get(struct FIFO8 *fifo);
+int fifo8_status(struct FIFO8 *fifo);
 
 #endif
