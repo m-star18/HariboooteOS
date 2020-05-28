@@ -6,6 +6,7 @@ void HariMain(void) {
     char mcursor[16 * 16];
     int mx;
     int my;
+    int i;
 
     struct BOOTINFO *binfo = (struct BOOTINFO *) ADR_BOOTINFO;
 
@@ -22,10 +23,10 @@ void HariMain(void) {
     my = (binfo->scrny - 28 - 16) / 2;
     putblock8_8(binfo->vram, binfo->scrnx, 16, 16, mx, my, mcursor, 16);
 
-    sprintf(str, "(%d, %d)", mx, my);
+    _sprintf(str, "(%d, %d)", mx, my);
     putfonts8_asc(binfo->vram, binfo->scrnx, 0, 0, COL8_FFFFFF, str);
 
-    sprintf(str, "scrnx = %d", binfo->scrnx);
+    _sprintf(str, "scrnx = %d", binfo->scrnx);
     putfonts8_asc(binfo->vram, binfo->scrnx, 16, 64, COL8_FFFFFF, str);
 
     putfonts8_asc(binfo->vram, binfo->scrnx, 31, 31, COL8_000000, "Haribooote OS.");
@@ -36,6 +37,20 @@ void HariMain(void) {
     //マウスを許可(11101111)
     io_out8(PIC1_IMR, 0xef);
 
-    for(;;)
-        io_hlt();
+    for (;;) {
+        io_cli();
+
+        if (keybuf.flag == 0)
+            io_stihlt();
+        else {
+            i = keybuf.data;
+            keybuf.flag = 0;
+
+            io_sti();
+            _sprintf(str, "%02X", i);
+
+            boxfill8(binfo->vram, binfo->scrnx, COL8_008484, 0, 16, 15, 31);
+            putfonts8_asc(binfo->vram, binfo->scrnx, 0, 16, COL8_FFFFFF, str);
+        }
+    }
 }

@@ -1,5 +1,6 @@
-
 #include "bootpack.h"
+
+struct KEYBUF keybuf = {0, 0};
 
 void init_pic() {
     /*
@@ -43,12 +44,10 @@ void inthandler21(int *esp) {
     io_out8(PIC0_OCW2, 0x61);
     data = io_in8(PORT_KEYDAT);
 
-    //data = 0x5f;
-    //sprintf(s, "%03d, %04d, 0x%02x, 0x%03X", data, data, data, data, data);
-    sprintf(s, "%02X", data);
-
-    boxfill8(binfo->vram, binfo->scrnx, COL8_008484, 0, 16, 15, 31);
-    putfonts8_asc(binfo->vram, binfo->scrnx, 0, 16, COL8_FFFFFF, s);
+    if (keybuf.flag == 0) {
+        keybuf.data = data;
+        keybuf.flag = 1;
+    }
 }
 
 //マウス割り込み
