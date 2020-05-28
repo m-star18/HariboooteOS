@@ -1,6 +1,6 @@
 #include "bootpack.h"
 
-struct KEYBUF keybuf = {0, 0};
+struct KEYBUF keybuf = {0};
 
 void init_pic() {
     /*
@@ -44,9 +44,9 @@ void inthandler21(int *esp) {
     io_out8(PIC0_OCW2, 0x61);
     data = io_in8(PORT_KEYDAT);
 
-    if (keybuf.flag == 0) {
-        keybuf.data = data;
-        keybuf.flag = 1;
+    if (keybuf.next < KEYBUF_SIZE) {
+        keybuf.data[keybuf.next] = data;
+        keybuf.next++;
     }
 }
 

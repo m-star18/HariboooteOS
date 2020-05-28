@@ -4,9 +4,8 @@ void HariMain(void) {
     char *vram;
     char str[32] = {0};
     char mcursor[16 * 16];
-    int mx;
-    int my;
-    int i;
+    int mx, my;
+    int i, j;
 
     struct BOOTINFO *binfo = (struct BOOTINFO *) ADR_BOOTINFO;
 
@@ -40,11 +39,13 @@ void HariMain(void) {
     for (;;) {
         io_cli();
 
-        if (keybuf.flag == 0)
+        if (keybuf.next == 0)
             io_stihlt();
         else {
-            i = keybuf.data;
-            keybuf.flag = 0;
+            i = keybuf.data[0];
+            keybuf.next--;
+            for (j = 0; j < keybuf.next; j++)
+                keybuf.data[j] = keybuf.data[j + 1];
 
             io_sti();
             _sprintf(str, "%02X", i);

@@ -115,9 +115,11 @@ void putblock8_8(char *vram, int vxsize, int pxsize, int pysize, int px0, int py
 
 #define PORT_KEYDAT 0x0060
 
+#define KEYBUF_SIZE 32
+
 struct KEYBUF {
-    unsigned char data;
-    unsigned char flag;
+    unsigned char data[KEYBUF_SIZE];
+    int next;
 };
 
 void init_pic(void);
