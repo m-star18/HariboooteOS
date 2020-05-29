@@ -16,6 +16,13 @@ struct BOOTINFO {
     char *vram;
 };
 
+struct MOUSE_DEC {
+    unsigned char buf[3];
+    unsigned char phase;
+    int x, y;
+    int btn;
+};
+
 //asm_func.s
 void io_hlt(void);
 void io_cli(void);
@@ -28,6 +35,12 @@ void io_store_eflags(int eflags);
 void asm_inthandler21(void);
 void asm_inthandler2c(void);
 void asm_inthandler27(void);
+
+//bootpack.c
+void enable_mouse(struct MOUSE_DEC *mdec);
+int mouse_decode(struct MOUSE_DEC *mdec, unsigned char dat);
+void init_keyboard(void);
+void wait_KBC_sendready(void);
 
 //dsctbl.c
 #define ADR_IDT 0x0026f800
@@ -138,8 +151,7 @@ extern struct FIFO8 mousefifo;
 
 struct FIFO8 {
     unsigned char *buf;
-    int p;
-    int q;
+    int p, q;
     int size;
     int free;
     int flags;
