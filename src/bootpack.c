@@ -1,5 +1,8 @@
 #include "bootpack.h"
 
+unsigned char mouse_dbuf[3];
+unsigned char mouse_phase;
+
 void wait_KBC_sendready(void) {
     //キーボードコントローラの準備ができるまで待つ
     //port 0x0064の2bit目が0になったら準備完了なので抜ける
@@ -47,6 +50,8 @@ void HariMain(void) {
     fifo8_init(&keyfifo, sizeof(keybuf), keybuf);
     fifo8_init(&mousefifo, sizeof(mousebuf), mousebuf);
 
+    mouse_phase = 0;
+
     //GDT, IDTを初期化、PICを初期化、割り込みの受付を開始
     init_gdtidt();
     init_pic();
@@ -76,7 +81,7 @@ void HariMain(void) {
     //マウスを許可(11101111)
     io_out8(PIC1_IMR, 0xef);
 
-    for (;;) {
+    for(;;) {
         io_cli();
         if (fifo8_status(&keyfifo) + fifo8_status(&mousefifo) == 0)
             io_stihlt();
@@ -95,14 +100,23 @@ void HariMain(void) {
                 boxfill8(binfo->vram, binfo->scrnx, COL8_008484, 0, 92, binfo->scrnx, 107);
                 putfonts8_asc(binfo->vram, binfo->scrnx, 0, 92, COL8_FFFFFF, str);
             }
-                //マウス
+            //マウス
             else if (fifo8_status(&mousefifo) != 0) {
                 i = fifo8_get(&mousefifo);
                 io_sti();
-                _sprintf(str, "%02X", i);
 
-                boxfill8(binfo->vram, binfo->scrnx, COL8_008484, 32, 16, 47, 31);
-                putfonts8_asc(binfo->vram, binfo->scrnx, 32, 16, COL8_FFFFFF, str);
+                if (mouse_phase == 0) {
+                    if (i == 0xfa)
+                        mouse_phase++;
+                }
+                else if (mouse_phase > 0) {
+                    mouse_dbuf[mouse_phase - 1] = i;
+                    mouse_phase = (mouse_phase % 3) + 1;
+
+                    _sprintf(str, "%02X %02X %02X", mouse_dbuf[0], mouse_dbuf[1], mouse_dbuf[2]);
+                    boxfill8(binfo->vram, binfo->scrnx, COL8_008484, 32, 16, 32 + 8 * 8, 31);
+                    putfonts8_asc(binfo->vram, binfo->scrnx, 32, 16, COL8_FFFFFF, str);
+                }
 
                 _sprintf(str, "mousebuf(r,w) = (%d : %d)", mousefifo.q, mousefifo.p);
                 boxfill8(binfo->vram, binfo->scrnx, COL8_008484, 0, 109, binfo->scrnx, 125);
