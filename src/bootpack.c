@@ -40,8 +40,8 @@ void HariMain(void) {
     //_sprintf(str, "scrnx = %d", binfo->scrnx);
     //putfonts8_asc(binfo->vram, binfo->scrnx, 16, 64, COL8_FFFFFF, str);
 
-    putfonts8_asc(binfo->vram, binfo->scrnx, 33, 33, COL8_000000, "Haribote OS.");
-    putfonts8_asc(binfo->vram, binfo->scrnx, 32, 32, COL8_FFFFFF, "Haribote OS.");
+    putfonts8_asc(binfo->vram, binfo->scrnx, 33, 33, COL8_000000, "Haribooote OS.");
+    putfonts8_asc(binfo->vram, binfo->scrnx, 32, 32, COL8_FFFFFF, "Haribooote OS.");
 
 
     //PIC1とキーボードを許可(11111001)
@@ -78,22 +78,37 @@ void HariMain(void) {
                     _sprintf(str, "[lcr %04d %04d]", mdec.x, mdec.y);
 
                     //1bit目 Left
-                    if ((mdec.btn & 0x01) != 0)
-                        str[1] = 'L';
+                    if ((mdec.btn & 0x01) != 0) str[1] = 'L';
                     //2bit目 center
-                    if ((mdec.btn & 0x04) != 0)
-                        str[2] = 'C';
+                    if ((mdec.btn & 0x04) != 0) str[2] = 'C';
                     //3bit目 Right
-                    if ((mdec.btn & 0x02) != 0)
-                        str[3] = 'R';
+                    if ((mdec.btn & 0x02) != 0) str[3] = 'R';
 
                     boxfill8(binfo->vram, binfo->scrnx, COL8_008484, 32, 16, 320, 31);
                     putfonts8_asc(binfo->vram, binfo->scrnx, 32, 16, COL8_FFFFFF, str);
-                }
 
-                _sprintf(str, "mousebuf(r,w) = (%d : %d)", mousefifo.q, mousefifo.p);
-                boxfill8(binfo->vram, binfo->scrnx, COL8_008484, 0, 109, binfo->scrnx, 125);
-                putfonts8_asc(binfo->vram, binfo->scrnx, 0, 109, COL8_FFFFFF, str);
+                    //マウス移動
+                    //消す
+                    boxfill8(binfo->vram, binfo->scrnx, COL8_008484, mx, my, mx + 15, my + 15);
+
+                    //値の書き換え
+                    mx += mdec.x;
+                    my += mdec.y;
+
+                    //画面外に行かないようにする
+                    if (mx < 0) mx = 0;
+                    if (my < 0) my = 0;
+                    if (mx > binfo->scrnx - 16) mx = binfo->scrnx - 16;
+                    if (my > binfo->scrny - 16) my = binfo->scrny - 16;
+
+                    //座標情報
+                    _sprintf(str, "(%3d, %3d)", mx, my);
+                    boxfill8(binfo->vram, binfo->scrnx, COL8_008484, 0, 0, 79, 15);
+                    putfonts8_asc(binfo->vram, binfo->scrnx, 0, 0, COL8_FFFFFF, str);
+
+                    //マウス描画
+                    putblock8_8(binfo->vram, binfo->scrnx, 16, 16, mx, my, mcursor, 16);
+                }
             }
         }
     }
@@ -102,10 +117,8 @@ void HariMain(void) {
 void wait_KBC_sendready(void) {
     //キーボードコントローラの準備ができるまで待つ
     //port 0x0064の2bit目が0になったら準備完了なので抜ける
-    for (;;) {
-        if ((io_in8(PORT_KEYSTA) & KEYSTA_SEND_NOTREADY) == 0)
-            break;
-    }
+    for (;;)
+        if ((io_in8(PORT_KEYSTA) & KEYSTA_SEND_NOTREADY) == 0) break;
 }
 
 void init_keyboard(void) {
@@ -137,8 +150,7 @@ void enable_mouse(struct MOUSE_DEC *mdec) {
 
 int mouse_decode(struct MOUSE_DEC *mdec, unsigned char dat) {
     if (mdec->phase == 0) {
-        if(dat == 0xfa)
-            mdec->phase++;
+        if (dat == 0xfa) mdec->phase++;
 
         return 0;
     }
