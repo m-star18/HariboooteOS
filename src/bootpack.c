@@ -74,8 +74,20 @@ void HariMain(void) {
                 io_sti();
 
                 if (mouse_decode(&mdec, i) != 0) {
-                    _sprintf(str, "%02X %02X %02X", mdec.buf[0], mdec.buf[1], mdec.buf[2]);
-                    boxfill8(binfo->vram, binfo->scrnx, COL8_008484, 32, 16, 32 + 8 * 8, 31);
+                    //_sprintf(str, "[lcr %04d %04d]", mdec.x, mdec.y);
+                    _sprintf(str, "[lcr %04d %04d]", mdec.x, mdec.y);
+
+                    //1bit目 Left
+                    if ((mdec.btn & 0x01) != 0)
+                        str[1] = 'L';
+                    //2bit目 center
+                    if ((mdec.btn & 0x04) != 0)
+                        str[2] = 'C';
+                    //3bit目 Right
+                    if ((mdec.btn & 0x02) != 0)
+                        str[3] = 'R';
+
+                    boxfill8(binfo->vram, binfo->scrnx, COL8_008484, 32, 16, 320, 31);
                     putfonts8_asc(binfo->vram, binfo->scrnx, 32, 16, COL8_FFFFFF, str);
                 }
 
@@ -130,17 +142,50 @@ int mouse_decode(struct MOUSE_DEC *mdec, unsigned char dat) {
 
         return 0;
     }
-    else if (mdec->phase > 0) {
-        //1byteずつ格納、3回繰り返して最初に戻す
-        mdec->buf[mdec->phase - 1] = dat;
 
-        if (mdec->phase == 3) {
-            mdec->phase = 1;
-            return 1;
+    if (mdec->phase == 1) {
+
+        //正しいデータかチェック
+        //0xc8 = 11001000
+        //上位4bitはマウスの動きに合わせて0-3の範囲で変化する
+        //下位4bitはクリックで8-Fの範囲で変化する
+        //受け取るデータは常に、00XX1XXXXになるので、0x8cとの論理積をとって0x08(00001000)で無ければ不正
+        if ((dat & 0xc8) == 0x08) {
+            mdec->buf[0] = dat;
+            mdec->phase = 2;
         }
 
-        mdec->phase = (mdec->phase % 3) + 1;
         return 0;
     }
+
+    if (mdec->phase == 2) {
+        mdec->buf[1] = dat;
+        mdec->phase = 3;
+
+        return 0;
+    }
+
+    if (mdec->phase == 3) {
+        mdec->buf[2] = dat;
+        mdec->phase = 1;
+
+        mdec->btn = mdec->buf[0] & 0x07;
+        mdec->x = mdec->buf[1];
+        mdec->y = mdec->buf[2];
+
+        //x, yは基本的に2, 3byte目のデータをそのまま使う
+        //1byte目のx, yそれぞれに対応するbitが1だと上位24bitを全部1になる
+        if ((mdec->buf[0] & 0x10) != 0)
+            mdec->x |= 0xffffff00;
+
+        if ((mdec->buf[0] & 0x20) != 0)
+            mdec->y |= 0xffffff00;
+
+        //y方向の符号反転
+        mdec->y = -mdec->y;
+
+        return 1;
+    }
+
     return -1;
 }

@@ -19,6 +19,8 @@ struct BOOTINFO {
 struct MOUSE_DEC {
     unsigned char buf[3];
     unsigned char phase;
+    int x, y;
+    int btn;
 };
 
 //asm_func.s
