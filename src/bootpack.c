@@ -1,41 +1,5 @@
 #include "bootpack.h"
 
-unsigned char mouse_dbuf[3];
-unsigned char mouse_phase;
-
-void wait_KBC_sendready(void) {
-    //キーボードコントローラの準備ができるまで待つ
-    //port 0x0064の2bit目が0になったら準備完了なので抜ける
-
-    for (;;) {
-        if((io_in8(PORT_KEYSTA) & KEYSTA_SEND_NOTREADY) == 0)
-            break;
-    }
-}
-
-void init_keyboard(void) {
-    //キーボードコントローラ初期化
-
-    wait_KBC_sendready();
-    //モード設定のためのコマンド(0x60)
-    io_out8(PORT_KEYCMD, KEYCMD_WRITE_MODE);
-    wait_KBC_sendready();
-    //マウスを利用できるようにする(0x47)
-    io_out8(PORT_KEYDAT, KBC_MODE);
-}
-
-void enable_mouse(void) {
-    //マウス有効化
-
-    wait_KBC_sendready();
-    //マウスを設定
-    //キーボードコントローラに0xd4を送るとマウスに転送してくれる
-    io_out8(PORT_KEYCMD, KEYCMD_SENDTO_MOUSE);
-    wait_KBC_sendready();
-    //マウスを有効化
-    io_out8(PORT_KEYDAT, MOUSECMD_ENABLE);
-}
-
 void HariMain(void) {
     char *vram;
     char str[32] = {0};
@@ -46,17 +10,20 @@ void HariMain(void) {
     int i, j;
 
     struct BOOTINFO *binfo = (struct BOOTINFO *) ADR_BOOTINFO;
+    struct MOUSE_DEC mdec;
 
     fifo8_init(&keyfifo, sizeof(keybuf), keybuf);
     fifo8_init(&mousefifo, sizeof(mousebuf), mousebuf);
 
-    mouse_phase = 0;
-
-    //GDT, IDTを初期化、PICを初期化、割り込みの受付を開始
+    //GDT, IDTを初期化
     init_gdtidt();
+    //PICを初期化
     init_pic();
+    //キーボード初期化、マウス有効化
     init_keyboard();
-    enable_mouse();
+    enable_mouse(&mdec);
+
+    //割り込みの受付完了を開始
     io_sti();
 
     init_palette();
@@ -70,18 +37,19 @@ void HariMain(void) {
     _sprintf(str, "(%d, %d)", mx, my);
     putfonts8_asc(binfo->vram, binfo->scrnx, 0, 0, COL8_FFFFFF, str);
 
-    // _sprintf(str, "scrnx = %d", binfo->scrnx);
-    // putfonts8_asc(binfo->vram, binfo->scrnx, 16, 64, COL8_FFFFFF, str);
+    //_sprintf(str, "scrnx = %d", binfo->scrnx);
+    //putfonts8_asc(binfo->vram, binfo->scrnx, 16, 64, COL8_FFFFFF, str);
 
-    putfonts8_asc(binfo->vram, binfo->scrnx, 31, 31, COL8_000000, "Haribooote OS.");
-    putfonts8_asc(binfo->vram, binfo->scrnx, 30, 30, COL8_FFFFFF, "Haribooote OS.");
+    putfonts8_asc(binfo->vram, binfo->scrnx, 33, 33, COL8_000000, "Haribote OS.");
+    putfonts8_asc(binfo->vram, binfo->scrnx, 32, 32, COL8_FFFFFF, "Haribote OS.");
+
 
     //PIC1とキーボードを許可(11111001)
     io_out8(PIC0_IMR, 0xf9);
     //マウスを許可(11101111)
     io_out8(PIC1_IMR, 0xef);
 
-    for(;;) {
+    for (;;) {
         io_cli();
         if (fifo8_status(&keyfifo) + fifo8_status(&mousefifo) == 0)
             io_stihlt();
@@ -105,15 +73,8 @@ void HariMain(void) {
                 i = fifo8_get(&mousefifo);
                 io_sti();
 
-                if (mouse_phase == 0) {
-                    if (i == 0xfa)
-                        mouse_phase++;
-                }
-                else if (mouse_phase > 0) {
-                    mouse_dbuf[mouse_phase - 1] = i;
-                    mouse_phase = (mouse_phase % 3) + 1;
-
-                    _sprintf(str, "%02X %02X %02X", mouse_dbuf[0], mouse_dbuf[1], mouse_dbuf[2]);
+                if (mouse_decode(&mdec, i) != 0) {
+                    _sprintf(str, "%02X %02X %02X", mdec.buf[0], mdec.buf[1], mdec.buf[2]);
                     boxfill8(binfo->vram, binfo->scrnx, COL8_008484, 32, 16, 32 + 8 * 8, 31);
                     putfonts8_asc(binfo->vram, binfo->scrnx, 32, 16, COL8_FFFFFF, str);
                 }
@@ -124,4 +85,62 @@ void HariMain(void) {
             }
         }
     }
+}
+
+void wait_KBC_sendready(void) {
+    //キーボードコントローラの準備ができるまで待つ
+    //port 0x0064の2bit目が0になったら準備完了なので抜ける
+    for (;;) {
+        if ((io_in8(PORT_KEYSTA) & KEYSTA_SEND_NOTREADY) == 0)
+            break;
+    }
+}
+
+void init_keyboard(void) {
+    //キーボードコントローラ初期化
+
+    wait_KBC_sendready();
+    //モード設定のためのコマンド(0x60)
+    io_out8(PORT_KEYCMD, KEYCMD_WRITE_MODE);
+    wait_KBC_sendready();
+    //マウスを利用できるようにする(0x47)
+    io_out8(PORT_KEYDAT, KBC_MODE);
+}
+
+void enable_mouse(struct MOUSE_DEC *mdec) {
+    //マウス有効化
+
+    wait_KBC_sendready();
+    //マウスを設定
+    //キーボードコントローラに0xd4を送るとマウスに転送してくれる
+    io_out8(PORT_KEYCMD, KEYCMD_SENDTO_MOUSE);
+    wait_KBC_sendready();
+    //マウスを有効化
+    //成功するとACK(0xfa)が返ってくるらしい
+    io_out8(PORT_KEYDAT, MOUSECMD_ENABLE);
+
+    //デコード用構造体の初期化
+    mdec->phase = 0;
+}
+
+int mouse_decode(struct MOUSE_DEC *mdec, unsigned char dat) {
+    if (mdec->phase == 0) {
+        if(dat == 0xfa)
+            mdec->phase++;
+
+        return 0;
+    }
+    else if (mdec->phase > 0) {
+        //1byteずつ格納、3回繰り返して最初に戻す
+        mdec->buf[mdec->phase - 1] = dat;
+
+        if (mdec->phase == 3) {
+            mdec->phase = 1;
+            return 1;
+        }
+
+        mdec->phase = (mdec->phase % 3) + 1;
+        return 0;
+    }
+    return -1;
 }
