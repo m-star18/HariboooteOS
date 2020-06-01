@@ -8,9 +8,11 @@ void HariMain(void) {
     char mousebuf[MOUSEBUF_SIZE];
     int mx, my;
     int i, j;
+    unsigned int memtotal;
 
     struct BOOTINFO *binfo = (struct BOOTINFO *) ADR_BOOTINFO;
     struct MOUSE_DEC mdec;
+    struct MEMMAN *memman = (struct MEMMAN *) MEMMAN_ADDR;
 
     fifo8_init(&keyfifo, sizeof(keybuf), keybuf);
     fifo8_init(&mousefifo, sizeof(mousebuf), mousebuf);
@@ -45,9 +47,12 @@ void HariMain(void) {
     */
 
     //メモリ容量
-    //最大3GBまで
-    i = memtest(0x00400000, 0xbfffffff) / (1024 * 1024);
-    _sprintf(str, "memory %dMB", i);
+    memtotal = memtest(0x00400000, 0xbfffffff);
+    memman_init(memman);
+    memman_free(memman, 0x00001000, 0x0009e000); //0x00001000 - 0x0009efff
+    memman_free(memman, 0x00400000, memtotal - 0x00400000);
+
+    _sprintf(str, "memory %dMB    free : %dKB", memtotal / (1024 * 1024), memman_total(memman) / 1024);
     putfonts8_asc(binfo->vram, binfo->scrnx, 0, 32, COL8_FFFFFF, str);
 
     //PIC1とキーボードを許可(11111001)
@@ -164,3 +169,114 @@ unsigned int memtest(unsigned int start, unsigned int end) {
     return i;
 }
 
+void memman_init(struct MEMMAN *man) {
+    man->frees = 0;
+    man->maxfrees = 0;
+    man->lostsize = 0;
+    man->losts = 0;
+}
+
+unsigned int memman_total(struct MEMMAN *man) {
+    unsigned int i;
+    unsigned int t = 0;
+
+    for (i = 0; i < man->frees; i++)
+        t += man->free[i].size;
+
+    return t;
+}
+
+unsigned int memmam_alloc(struct MEMMAN *man, unsigned int size) {
+    unsigned int i;
+    unsigned int a;
+
+    for (i = 0; i < man->frees; i++) {
+        if (man->free[i].size >= size) {
+            //確保可能
+            a = man->free[i].addr;
+            man->free[i].addr += size;
+            man->free[i].size -= size;
+
+            //free[i]がなくなったので前へ詰める
+            if (man->free[i].size == 0) {
+                man->frees--;
+                for (; i < man->frees; i++)
+                    man->free[i] = man->free[i + 1];
+            }
+
+            return a;
+        }
+    }
+
+    return 0;
+}
+
+int memman_free(struct MEMMAN *man, unsigned int addr, unsigned int size) {
+    int i;
+    int j;
+
+    //挿入場所を決める（freeがaddr順に並んでいたほうがまとめやすい）
+    for (i = 0; i < man->frees; i++)
+        if(man->free[i].addr > addr) break;
+
+    // free[i - 1].addr < addr < free[i]
+    if (i > 0) {
+        //iが0より大きい＝前がある
+
+        //まとめられる
+        if (man->free[i - 1].addr + man->free[i - 1].size == addr) {
+            man->free[i - 1].size += size;
+
+            //freesより小さい、後ろもある
+            if (i < man->frees) {
+
+                //後ろもまとめられる
+                if (addr + size == man->free[i].addr) {
+                    man->free[i-1].size += man->free[i].size;
+
+                    //後ろをまとめてfree[i]が空いたのでつめる
+                    man->frees--;
+                    for (; i < man->frees; i++)
+                        man->free[i] = man->free[i + 1];
+                }
+            }
+
+            return 0;
+        }
+    }
+
+    //後ろがある
+    if (i < man->frees) {
+        //まとめられる
+        if (addr + size == man->free[i].addr) {
+            man->free[i].addr = addr;
+            man->free[i].size += size;
+
+            return 0;
+        }
+    }
+
+    //以下まとめられない場合
+
+    //リストに追加可能
+    if (man->frees < MEMMAN_FREES) {
+        //リストに追加するために、後ろへつめる
+        for (j = man->frees; j > i; j--)
+            man->free[j] = man->free[j - 1];
+
+        //追加
+        man->frees++;
+        if (man->maxfrees < man->frees)
+            man->maxfrees = man->frees; //最大値更新
+
+        man->free[i].addr = addr;
+        man->free[i].size = size;
+        return 0;
+    }
+
+    //リストに追加できない（エラー）
+    man->losts++;
+    man->lostsize += size;
+
+    return -1;
+}
