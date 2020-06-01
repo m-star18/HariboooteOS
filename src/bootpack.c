@@ -36,13 +36,19 @@ void HariMain(void) {
 
     _sprintf(str, "(%d, %d)", mx, my);
     putfonts8_asc(binfo->vram, binfo->scrnx, 0, 0, COL8_FFFFFF, str);
-
-    //_sprintf(str, "scrnx = %d", binfo->scrnx);
-    //putfonts8_asc(binfo->vram, binfo->scrnx, 16, 64, COL8_FFFFFF, str);
+    /*
+    _sprintf(str, "scrnx = %d", binfo->scrnx);
+    putfonts8_asc(binfo->vram, binfo->scrnx, 16, 64, COL8_FFFFFF, str);
 
     putfonts8_asc(binfo->vram, binfo->scrnx, 33, 33, COL8_000000, "Haribooote OS.");
     putfonts8_asc(binfo->vram, binfo->scrnx, 32, 32, COL8_FFFFFF, "Haribooote OS.");
+    */
 
+    //メモリ容量
+    //最大3GBまで
+    i = memtest(0x00400000, 0xbfffffff) / (1024 * 1024);
+    _sprintf(str, "memory %dMB", i);
+    putfonts8_asc(binfo->vram, binfo->scrnx, 0, 32, COL8_FFFFFF, str);
 
     //PIC1とキーボードを許可(11111001)
     io_out8(PIC0_IMR, 0xf9);
@@ -112,4 +118,84 @@ void HariMain(void) {
             }
         }
     }
+}
+
+#define EFLAGS_AC_BIT 0x00040000 //18(AC) bit
+#define CR0_CACHE_DISABLE 0x60000000 //30(CD), 21(PG) bit
+
+unsigned int memtest(unsigned int start, unsigned int end) {
+    char flg486 = 0;
+    unsigned int eflg;
+    unsigned int cr0;
+    unsigned int i;
+
+    //486以降ならキャッシュを無効にする必要がある
+
+    //386か486かを確認する
+    //EFLAGSを読み込んで、ac-bit(第18bit)を1にしてEFLAGSに戻す
+    //386ではac-bitを1にしても自動的に0に戻ってしまうので、これで386か486かを判定できる
+    eflg = io_load_eflags();
+    eflg |= EFLAGS_AC_BIT;
+    io_store_eflags(eflg);
+    eflg = io_load_eflags();
+    if ((eflg & EFLAGS_AC_BIT) != 0) flg486 = 1;
+
+    //ac-bitは0に戻しておく
+    eflg &= ~EFLAGS_AC_BIT;
+    io_store_eflags(eflg);
+
+    //486以降ならキャッシュを無効にする
+    //crにあるのフラグで設定できる
+    if (flg486 != 0) {
+        cr0 = load_cr0();
+        cr0 |= CR0_CACHE_DISABLE;
+        store_cr0(cr0);
+    }
+
+    i = memtest_sub(start, end);
+
+    //キャッシュを有効に戻す
+    if (flg486 != 0) {
+        cr0 = load_cr0();
+        cr0 &= ~CR0_CACHE_DISABLE;
+        store_cr0(cr0);
+    }
+
+    return i;
+}
+
+unsigned int memtest_sub(unsigned int start, unsigned int end) {
+    unsigned int i;
+    unsigned int *p;
+    unsigned int old;
+
+    unsigned int pat0 = 0xaa55aa55;
+    unsigned int pat1 = 0x55aa55aa;
+
+    for (i = start; i <= end; i += 0x100) {  //4KBずつチェック
+        p = (unsigned int *)(i + 0xffc); //4KBの下位4byteを見る
+
+        //戻せるように今の値を覚えておく
+        old = *p;
+
+        //テスト用のデータを入れてbit反転
+        *p = pat0;
+        *p ^= 0xffffffff;
+
+        //正常に反転できていなければ値をもどして抜ける
+        if (*p != pat1) {
+            *p = old;
+            break;
+        }
+
+        //再反転して同じように値をチェックする
+        *p ^= 0xffffffff;
+
+        if (*p != pat0) {
+            *p = old;
+            break;
+        }
+    }
+
+    return i;
 }

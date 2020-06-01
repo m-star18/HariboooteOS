@@ -7,6 +7,7 @@
 .global io_out8, io_out16, io_out32
 .global io_load_eflags, io_store_eflags
 .global load_gdtr, load_idtr
+.global load_cr0, store_cr0
 .global asm_inthandler21, asm_inthandler2c, asm_inthandler27
 
 .extern inthandler21, inthandler2c, inthandler27
@@ -88,16 +89,27 @@ io_store_eflags:
 
 #void load_gdtr(int limit, int addr)
 load_gdtr:
-    mov 4(%esp), %ax #limit
-    mov %ax, 6(%esp)
+    movw 4(%esp), %ax #limit
+    movw %ax, 6(%esp)
     lgdt 6(%esp)
     ret
 
 #void load_idtr(int limit, int addr)
 load_idtr:
-    mov 4(%esp), %ax #limit
-    mov %ax, 6(%esp)
+    movw 4(%esp), %ax #limit
+    movw %ax, 6(%esp)
     lidt 6(%esp)
+    ret
+
+#int io_load_cr0(void)
+load_cr0:
+    movl %cr0, %eax
+    ret
+
+#void io_store_cr0(int cr0)
+store_cr0:
+    movl 4(%esp), %eax
+    movl %eax, %cr0
     ret
 
 #void asm_inthandler21(void)

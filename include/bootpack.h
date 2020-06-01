@@ -23,6 +23,10 @@ struct MOUSE_DEC {
     int btn;
 };
 
+//bootpack.c
+unsigned int memtest(unsigned int start, unsigned int end);
+unsigned int memtest_sub(unsigned int start, unsigned int end);
+
 //asm_func.s
 void io_hlt(void);
 void io_cli(void);
