@@ -36,12 +36,6 @@ void asm_inthandler21(void);
 void asm_inthandler2c(void);
 void asm_inthandler27(void);
 
-//bootpack.c
-void enable_mouse(struct MOUSE_DEC *mdec);
-int mouse_decode(struct MOUSE_DEC *mdec, unsigned char dat);
-void init_keyboard(void);
-void wait_KBC_sendready(void);
-
 //dsctbl.c
 #define ADR_IDT 0x0026f800
 #define LIMIT_IDT 0x000007ff
@@ -139,8 +133,6 @@ void putblock8_8(char *vram, int vxsize, int pxsize, int pysize, int px0, int py
 #define MOUSEBUF_SIZE 128
 
 void init_pic(void);
-void inthandler21(int *esp);
-void inthandler2c(int *esp);
 void inthandler27(int *esp);
 
 extern struct FIFO8 keyfifo;
@@ -161,5 +153,15 @@ void fifo8_init(struct FIFO8 *fifo, int size, unsigned char *buf);
 int fifo8_put(struct FIFO8 *fifo, unsigned char data);
 int fifo8_get(struct FIFO8 *fifo);
 int fifo8_status(struct FIFO8 *fifo);
+
+//keyboard.c
+void inthandler21(int *esp);
+void init_keyboard(void);
+void wait_KBC_sendready(void);
+
+//mouse.c
+void inthandler2c(int *esp);
+void enable_mouse(struct MOUSE_DEC *mdec);
+int mouse_decode(struct MOUSE_DEC *mdec, unsigned char dat);
 
 #endif

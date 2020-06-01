@@ -35,32 +35,6 @@ void init_pic() {
     io_out8(PIC1_IMR, 0xff); //11111111 すべての割り込みを受け付けない
 }
 
-//キーボード割り込み
-void inthandler21(int *esp) {
-    struct BOOTINFO *binfo = (struct BOOTINFO *) ADR_BOOTINFO;
-    unsigned char data;
-    unsigned char s[128];
-
-    //IRQ-01に受付完了を通知
-    io_out8(PIC0_OCW2, 0x61);
-    data = io_in8(PORT_KEYDAT);
-
-    fifo8_put(&keyfifo, data);
-}
-
-//マウス割り込み
-void inthandler2c(int *esp) {
-    unsigned char data;
-
-    //IRQ-12(スレーブの4番)受付完了をPIC1に通知
-    io_out8(PIC1_OCW2, 0x64);
-    //IRQ-02受付完了をPIC0に通知
-    io_out8(PIC0_OCW2, 0x62);
-
-    data = io_in8(PORT_KEYDAT);
-    fifo8_put(&mousefifo, data);
-}
-
 void inthandler27(int *esp) {
     io_out8(PIC0_OCW2, 0x67); /* IRQ-07受付完了をPICに通知(7-1参照) */
 }
