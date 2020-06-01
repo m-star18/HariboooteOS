@@ -7,7 +7,9 @@
 .global io_out8, io_out16, io_out32
 .global io_load_eflags, io_store_eflags
 .global load_gdtr, load_idtr
+.global load_cr0, store_cr0
 .global asm_inthandler21, asm_inthandler2c, asm_inthandler27
+.global memtest_sub
 
 .extern inthandler21, inthandler2c, inthandler27
 
@@ -88,16 +90,27 @@ io_store_eflags:
 
 #void load_gdtr(int limit, int addr)
 load_gdtr:
-    mov 4(%esp), %ax #limit
-    mov %ax, 6(%esp)
+    movw 4(%esp), %ax #limit
+    movw %ax, 6(%esp)
     lgdt 6(%esp)
     ret
 
 #void load_idtr(int limit, int addr)
 load_idtr:
-    mov 4(%esp), %ax #limit
-    mov %ax, 6(%esp)
+    movw 4(%esp), %ax #limit
+    movw %ax, 6(%esp)
     lidt 6(%esp)
+    ret
+
+#int io_load_cr0(void)
+load_cr0:
+    movl %cr0, %eax
+    ret
+
+#void io_store_cr0(int cr0)
+store_cr0:
+    movl 4(%esp), %eax
+    movl %eax, %cr0
     ret
 
 #void asm_inthandler21(void)
@@ -151,3 +164,39 @@ asm_inthandler27:
     pop %ds
     pop %es
     iret
+
+#unsigned int memtest_sub(unsigned int start, unsigned int end)
+memtest_sub:
+    push %edi #EDI, ESI, EBXも使う
+    push %esi
+    push %ebx
+    movl $0xaa55aa55, %esi # pat0 = 0xaa55aa55
+    movl $0x55aa55aa, %edi # pat1 = 0x55aa55aa
+    movl 12 + 4 (%esp), %eax  # i = start
+
+mts_loop:
+    movl %eax, %ebx
+    addl $0xffc, %ebx # p = i + 0xffc  //下位4byteをチェックする
+    movl (%ebx), %edx # old = *p
+    movl %esi, (%ebx) # *p = pat0
+    xorl $0xffffffff, (%ebx) # *p ^= 0xffffffff
+    cmpl (%ebx), %edi # if(*p == pat1) goto mts_fin
+    jne mts_fin
+    xorl $0xffffffff, (%ebx) # *p ^= 0xfffffff
+    cmpl (%ebx), %esi # if(*p == pat1) goto mts_fin
+    jne mts_fin
+    movl %edx, (%ebx)
+    addl $0x1000, %eax # i += 0x1000 (4KB進める)
+    cmpl 12 + 8 (%esp), %eax # if (i <= end) goto mts_loop
+    jbe mts_loop
+    pop %ebx
+    pop %esi
+    pop %edi
+    ret
+
+mts_fin:
+    movl %edx, (%ebx) #*p = old
+    pop %ebx
+    pop %esi
+    pop %edi
+    ret

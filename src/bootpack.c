@@ -8,9 +8,11 @@ void HariMain(void) {
     char mousebuf[MOUSEBUF_SIZE];
     int mx, my;
     int i, j;
+    unsigned int memtotal;
 
     struct BOOTINFO *binfo = (struct BOOTINFO *) ADR_BOOTINFO;
     struct MOUSE_DEC mdec;
+    struct MEMMAN *memman = (struct MEMMAN *) MEMMAN_ADDR;
 
     fifo8_init(&keyfifo, sizeof(keybuf), keybuf);
     fifo8_init(&mousefifo, sizeof(mousebuf), mousebuf);
@@ -36,13 +38,22 @@ void HariMain(void) {
 
     _sprintf(str, "(%d, %d)", mx, my);
     putfonts8_asc(binfo->vram, binfo->scrnx, 0, 0, COL8_FFFFFF, str);
-
-    //_sprintf(str, "scrnx = %d", binfo->scrnx);
-    //putfonts8_asc(binfo->vram, binfo->scrnx, 16, 64, COL8_FFFFFF, str);
+    /*
+    _sprintf(str, "scrnx = %d", binfo->scrnx);
+    putfonts8_asc(binfo->vram, binfo->scrnx, 16, 64, COL8_FFFFFF, str);
 
     putfonts8_asc(binfo->vram, binfo->scrnx, 33, 33, COL8_000000, "Haribooote OS.");
     putfonts8_asc(binfo->vram, binfo->scrnx, 32, 32, COL8_FFFFFF, "Haribooote OS.");
+    */
 
+    //メモリ容量
+    memtotal = memtest(0x00400000, 0xbfffffff);
+    memman_init(memman);
+    memman_free(memman, 0x00001000, 0x0009e000); //0x00001000 - 0x0009efff
+    memman_free(memman, 0x00400000, memtotal - 0x00400000);
+
+    _sprintf(str, "memory %dMB    free : %dKB", memtotal / (1024 * 1024), memman_total(memman) / 1024);
+    putfonts8_asc(binfo->vram, binfo->scrnx, 0, 32, COL8_FFFFFF, str);
 
     //PIC1とキーボードを許可(11111001)
     io_out8(PIC0_IMR, 0xf9);
@@ -114,90 +125,158 @@ void HariMain(void) {
     }
 }
 
-void wait_KBC_sendready(void) {
-    //キーボードコントローラの準備ができるまで待つ
-    //port 0x0064の2bit目が0になったら準備完了なので抜ける
-    for (;;)
-        if ((io_in8(PORT_KEYSTA) & KEYSTA_SEND_NOTREADY) == 0) break;
-}
+#define EFLAGS_AC_BIT 0x00040000 //18(AC) bit
+#define CR0_CACHE_DISABLE 0x60000000 //30(CD), 21(PG) bit
 
-void init_keyboard(void) {
-    //キーボードコントローラ初期化
+unsigned int memtest(unsigned int start, unsigned int end) {
+    char flg486 = 0;
+    unsigned int eflg;
+    unsigned int cr0;
+    unsigned int i;
 
-    wait_KBC_sendready();
-    //モード設定のためのコマンド(0x60)
-    io_out8(PORT_KEYCMD, KEYCMD_WRITE_MODE);
-    wait_KBC_sendready();
-    //マウスを利用できるようにする(0x47)
-    io_out8(PORT_KEYDAT, KBC_MODE);
-}
+    //486以降ならキャッシュを無効にする必要がある
 
-void enable_mouse(struct MOUSE_DEC *mdec) {
-    //マウス有効化
+    //386か486かを確認する
+    //EFLAGSを読み込んで、ac-bit(第18bit)を1にしてEFLAGSに戻す
+    //386ではac-bitを1にしても自動的に0に戻ってしまうので、これで386か486かを判定できる
+    eflg = io_load_eflags();
+    eflg |= EFLAGS_AC_BIT;
+    io_store_eflags(eflg);
+    eflg = io_load_eflags();
+    if ((eflg & EFLAGS_AC_BIT) != 0) flg486 = 1;
 
-    wait_KBC_sendready();
-    //マウスを設定
-    //キーボードコントローラに0xd4を送るとマウスに転送してくれる
-    io_out8(PORT_KEYCMD, KEYCMD_SENDTO_MOUSE);
-    wait_KBC_sendready();
-    //マウスを有効化
-    //成功するとACK(0xfa)が返ってくるらしい
-    io_out8(PORT_KEYDAT, MOUSECMD_ENABLE);
+    //ac-bitは0に戻しておく
+    eflg &= ~EFLAGS_AC_BIT;
+    io_store_eflags(eflg);
 
-    //デコード用構造体の初期化
-    mdec->phase = 0;
-}
-
-int mouse_decode(struct MOUSE_DEC *mdec, unsigned char dat) {
-    if (mdec->phase == 0) {
-        if (dat == 0xfa) mdec->phase++;
-
-        return 0;
+    //486以降ならキャッシュを無効にする
+    //crにあるのフラグで設定できる
+    if (flg486 != 0) {
+        cr0 = load_cr0();
+        cr0 |= CR0_CACHE_DISABLE;
+        store_cr0(cr0);
     }
 
-    if (mdec->phase == 1) {
+    i = memtest_sub(start, end);
 
-        //正しいデータかチェック
-        //0xc8 = 11001000
-        //上位4bitはマウスの動きに合わせて0-3の範囲で変化する
-        //下位4bitはクリックで8-Fの範囲で変化する
-        //受け取るデータは常に、00XX1XXXXになるので、0x8cとの論理積をとって0x08(00001000)で無ければ不正
-        if ((dat & 0xc8) == 0x08) {
-            mdec->buf[0] = dat;
-            mdec->phase = 2;
+    //キャッシュを有効に戻す
+    if (flg486 != 0) {
+        cr0 = load_cr0();
+        cr0 &= ~CR0_CACHE_DISABLE;
+        store_cr0(cr0);
+    }
+
+    return i;
+}
+
+void memman_init(struct MEMMAN *man) {
+    man->frees = 0;
+    man->maxfrees = 0;
+    man->lostsize = 0;
+    man->losts = 0;
+}
+
+unsigned int memman_total(struct MEMMAN *man) {
+    unsigned int i;
+    unsigned int t = 0;
+
+    for (i = 0; i < man->frees; i++)
+        t += man->free[i].size;
+
+    return t;
+}
+
+unsigned int memmam_alloc(struct MEMMAN *man, unsigned int size) {
+    unsigned int i;
+    unsigned int a;
+
+    for (i = 0; i < man->frees; i++) {
+        if (man->free[i].size >= size) {
+            //確保可能
+            a = man->free[i].addr;
+            man->free[i].addr += size;
+            man->free[i].size -= size;
+
+            //free[i]がなくなったので前へ詰める
+            if (man->free[i].size == 0) {
+                man->frees--;
+                for (; i < man->frees; i++)
+                    man->free[i] = man->free[i + 1];
+            }
+
+            return a;
         }
+    }
 
+    return 0;
+}
+
+int memman_free(struct MEMMAN *man, unsigned int addr, unsigned int size) {
+    int i;
+    int j;
+
+    //挿入場所を決める（freeがaddr順に並んでいたほうがまとめやすい）
+    for (i = 0; i < man->frees; i++)
+        if(man->free[i].addr > addr) break;
+
+    // free[i - 1].addr < addr < free[i]
+    if (i > 0) {
+        //iが0より大きい＝前がある
+
+        //まとめられる
+        if (man->free[i - 1].addr + man->free[i - 1].size == addr) {
+            man->free[i - 1].size += size;
+
+            //freesより小さい、後ろもある
+            if (i < man->frees) {
+
+                //後ろもまとめられる
+                if (addr + size == man->free[i].addr) {
+                    man->free[i-1].size += man->free[i].size;
+
+                    //後ろをまとめてfree[i]が空いたのでつめる
+                    man->frees--;
+                    for (; i < man->frees; i++)
+                        man->free[i] = man->free[i + 1];
+                }
+            }
+
+            return 0;
+        }
+    }
+
+    //後ろがある
+    if (i < man->frees) {
+        //まとめられる
+        if (addr + size == man->free[i].addr) {
+            man->free[i].addr = addr;
+            man->free[i].size += size;
+
+            return 0;
+        }
+    }
+
+    //以下まとめられない場合
+
+    //リストに追加可能
+    if (man->frees < MEMMAN_FREES) {
+        //リストに追加するために、後ろへつめる
+        for (j = man->frees; j > i; j--)
+            man->free[j] = man->free[j - 1];
+
+        //追加
+        man->frees++;
+        if (man->maxfrees < man->frees)
+            man->maxfrees = man->frees; //最大値更新
+
+        man->free[i].addr = addr;
+        man->free[i].size = size;
         return 0;
     }
 
-    if (mdec->phase == 2) {
-        mdec->buf[1] = dat;
-        mdec->phase = 3;
-
-        return 0;
-    }
-
-    if (mdec->phase == 3) {
-        mdec->buf[2] = dat;
-        mdec->phase = 1;
-
-        mdec->btn = mdec->buf[0] & 0x07;
-        mdec->x = mdec->buf[1];
-        mdec->y = mdec->buf[2];
-
-        //x, yは基本的に2, 3byte目のデータをそのまま使う
-        //1byte目のx, yそれぞれに対応するbitが1だと上位24bitを全部1になる
-        if ((mdec->buf[0] & 0x10) != 0)
-            mdec->x |= 0xffffff00;
-
-        if ((mdec->buf[0] & 0x20) != 0)
-            mdec->y |= 0xffffff00;
-
-        //y方向の符号反転
-        mdec->y = -mdec->y;
-
-        return 1;
-    }
+    //リストに追加できない（エラー）
+    man->losts++;
+    man->lostsize += size;
 
     return -1;
 }

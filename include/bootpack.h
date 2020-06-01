@@ -23,6 +23,29 @@ struct MOUSE_DEC {
     int btn;
 };
 
+//bootpack.c
+#define MEMMAN_ADDR 0x003c0000
+#define MEMMAN_FREES 4090
+
+struct FREEINFO{
+    unsigned int addr;
+    unsigned int size;
+};
+
+struct MEMMAN{
+    int frees; //空き情報の個数
+    int maxfrees; //freesの最大値
+    int lostsize; //解放に失敗した合計サイズ
+    int losts; //解放に失敗した回数
+    struct FREEINFO free[MEMMAN_FREES];
+};
+
+unsigned int memtest(unsigned int start, unsigned int end);
+unsigned int memtest_sub(unsigned int start, unsigned int end);
+void memman_init(struct MEMMAN *man);
+unsigned int memman_total(struct MEMMAN *man);
+unsigned int memmam_alloc(struct MEMMAN *man, unsigned int size);
+int memman_free(struct MEMMAN *man, unsigned int addr, unsigned int size);
 //asm_func.s
 void io_hlt(void);
 void io_cli(void);
@@ -35,12 +58,6 @@ void io_store_eflags(int eflags);
 void asm_inthandler21(void);
 void asm_inthandler2c(void);
 void asm_inthandler27(void);
-
-//bootpack.c
-void enable_mouse(struct MOUSE_DEC *mdec);
-int mouse_decode(struct MOUSE_DEC *mdec, unsigned char dat);
-void init_keyboard(void);
-void wait_KBC_sendready(void);
 
 //dsctbl.c
 #define ADR_IDT 0x0026f800
@@ -139,8 +156,6 @@ void putblock8_8(char *vram, int vxsize, int pxsize, int pysize, int px0, int py
 #define MOUSEBUF_SIZE 128
 
 void init_pic(void);
-void inthandler21(int *esp);
-void inthandler2c(int *esp);
 void inthandler27(int *esp);
 
 extern struct FIFO8 keyfifo;
@@ -161,5 +176,15 @@ void fifo8_init(struct FIFO8 *fifo, int size, unsigned char *buf);
 int fifo8_put(struct FIFO8 *fifo, unsigned char data);
 int fifo8_get(struct FIFO8 *fifo);
 int fifo8_status(struct FIFO8 *fifo);
+
+//keyboard.c
+void inthandler21(int *esp);
+void init_keyboard(void);
+void wait_KBC_sendready(void);
+
+//mouse.c
+void inthandler2c(int *esp);
+void enable_mouse(struct MOUSE_DEC *mdec);
+int mouse_decode(struct MOUSE_DEC *mdec, unsigned char dat);
 
 #endif
