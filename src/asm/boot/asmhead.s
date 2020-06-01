@@ -29,7 +29,6 @@
     int $0x16
     movb %al, (LEDS)
 
-
     #PICが割り込みを受け付けないようにする
     #よくわからないけどAT互換機の仕様では、PICの初期化をする場合CLI前にやる必要があるらしい
     #
@@ -52,7 +51,6 @@
     outb %al, $0x60
     call waitkbdout
 
-
 #protect mode
 
 .arch i486
@@ -64,8 +62,9 @@
     orl $0x00000001, %eax
     movl %eax, %cr0 #ページングを使用しないプロテクトモード(CR0の最上位bitを0, 最下位bitを1にする)
     jmp pipelineflush
+
 pipelineflush:
-    movw $1*8, %ax
+    movw $1 * 8, %ax
     movw %ax, %ds
     movw %ax, %es
     movw %ax, %fs
@@ -142,6 +141,7 @@ memcpy:
 
 #16byteアラインメント(GDT0ラベルが8の倍数になってないとパフォーマンスが落ちるらしい、バイト境界とかそのへんの話？)
 .align 16
+
 GDT0:
     #bootpacckを動かすための仮のGDT
     #以下で設定されるものと同じ

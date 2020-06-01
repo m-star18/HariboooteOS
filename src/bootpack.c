@@ -164,38 +164,3 @@ unsigned int memtest(unsigned int start, unsigned int end) {
     return i;
 }
 
-unsigned int memtest_sub(unsigned int start, unsigned int end) {
-    unsigned int i;
-    unsigned int *p;
-    unsigned int old;
-
-    unsigned int pat0 = 0xaa55aa55;
-    unsigned int pat1 = 0x55aa55aa;
-
-    for (i = start; i <= end; i += 0x100) {  //4KBずつチェック
-        p = (unsigned int *)(i + 0xffc); //4KBの下位4byteを見る
-
-        //戻せるように今の値を覚えておく
-        old = *p;
-
-        //テスト用のデータを入れてbit反転
-        *p = pat0;
-        *p ^= 0xffffffff;
-
-        //正常に反転できていなければ値をもどして抜ける
-        if (*p != pat1) {
-            *p = old;
-            break;
-        }
-
-        //再反転して同じように値をチェックする
-        *p ^= 0xffffffff;
-
-        if (*p != pat0) {
-            *p = old;
-            break;
-        }
-    }
-
-    return i;
-}
