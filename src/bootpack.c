@@ -87,12 +87,7 @@ void HariMain(void) {
 
                 boxfill8(binfo->vram, binfo->scrnx, COL8_008484, 0, 16, 15, 31);
                 putfonts8_asc(binfo->vram, binfo->scrnx, 0, 16, COL8_FFFFFF, str);
-                /*
-                _sprintf(str, "keybuf(r,w) = (%d : %d)", keyfifo.q, keyfifo.p);
-                boxfill8(binfo->vram, binfo->scrnx, COL8_008484, 0, 92, binfo->scrnx, 107);
-                putfonts8_asc(binfo->vram, binfo->scrnx, 0, 92, COL8_FFFFFF, str);
-                */
-                sheet_refresh(shtctl, sht_back, 16, 16, 32, 48);
+                sheet_refresh(shtctl, sht_back, 0, 16, 16, 32);
             }
             //マウス
             else if (fifo8_status(&mousefifo) != 0) {
@@ -112,6 +107,7 @@ void HariMain(void) {
 
                     boxfill8(binfo->vram, binfo->scrnx, COL8_008484, 32, 16, 320, 31);
                     putfonts8_asc(binfo->vram, binfo->scrnx, 32, 16, COL8_FFFFFF, str);
+                    sheet_refresh(shtctl, sht_back, 32, 16, 32 + 15 * 8, 32);
 
                     //値の書き換え
                     mx += mdec.x;
@@ -127,6 +123,7 @@ void HariMain(void) {
                     _sprintf(str, "(%3d, %3d)", mx, my);
                     boxfill8(binfo->vram, binfo->scrnx, COL8_008484, 0, 0, 79, 15);
                     putfonts8_asc(binfo->vram, binfo->scrnx, 0, 0, COL8_FFFFFF, str);
+                    sheet_refresh(shtctl, sht_back, 0, 0, 80, 16);
 
                     //移動後の描画
                     sheet_slide(shtctl, sht_mouse, mx, my);
