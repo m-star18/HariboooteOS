@@ -194,4 +194,36 @@ void inthandler2c(int *esp);
 void enable_mouse(struct MOUSE_DEC *mdec);
 int mouse_decode(struct MOUSE_DEC *mdec, unsigned char dat);
 
+//sheet.c
+#define MAX_SHEETS 256
+#define SHEET_USE 1
+
+struct SHEET {
+    unsigned char *buf;
+    int bxsize; //大きさ
+    int bysize;
+    int vx0; //位置
+    int vy0;
+    int col_inv; //透明色
+    int height; //高さ
+    int flags;
+};
+
+struct SHTCTL {
+    unsigned char *vram;
+    int xsize;
+    int ysize;
+    int top; //一番上のSHEETの高さ
+    struct SHEET *sheets[MAX_SHEETS];
+    struct SHEET sheets0[MAX_SHEETS];
+};
+
+struct SHTCTL *shtctl_init(struct MEMMAN *memman, unsigned char *vram, int xsize, int ysize);
+struct SHEET *sheet_alloc(struct SHTCTL *ctl);
+void sheet_setbuf(struct SHEET *sht, unsigned char *buf, int xsize, int ysize, int col_inv);
+void sheet_updown(struct SHTCTL *ctl, struct SHEET *sht, int height);
+void sheet_refresh(struct SHTCTL *ctl);
+void sheet_slide(struct SHTCTL *ctl, struct SHEET *sht, int vx0, int vy0);
+void sheet_free(struct SHTCTL *ctl, struct SHEET *sht);
+
 #endif

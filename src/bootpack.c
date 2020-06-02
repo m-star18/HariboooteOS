@@ -14,6 +14,12 @@ void HariMain(void) {
     struct MOUSE_DEC mdec;
     struct MEMMAN *memman = (struct MEMMAN *) MEMMAN_ADDR;
 
+    struct SHTCTL *shtctl;
+    struct SHEET *sht_back;
+    struct SHEET *sht_mouse;
+    unsigned char *buf_back;
+    unsigned char buf_mouse[256];
+
     fifo8_init(&keyfifo, sizeof(keybuf), keybuf);
     fifo8_init(&mousefifo, sizeof(mousebuf), mousebuf);
 
@@ -27,17 +33,10 @@ void HariMain(void) {
 
     //割り込みの受付完了を開始
     io_sti();
-
-    init_palette();
-    init_screen(binfo->vram, binfo->scrnx, binfo->scrny);
-
-    init_mouse_cursor8(mcursor, COL8_008484);
-    mx = (binfo->scrnx - 16) / 2;
-    my = (binfo->scrny - 28 - 16) / 2;
-    putblock8_8(binfo->vram, binfo->scrnx, 16, 16, mx, my, mcursor, 16);
-
-    _sprintf(str, "(%d, %d)", mx, my);
-    putfonts8_asc(binfo->vram, binfo->scrnx, 0, 0, COL8_FFFFFF, str);
+    //PIC1とキーボードを許可(11111001)
+    io_out8(PIC0_IMR, 0xf9);
+    //マウスを許可(11101111)
+    io_out8(PIC1_IMR, 0xef);
 
     //メモリ容量
     memtotal = memtest(0x00400000, 0xbfffffff);
@@ -45,13 +44,33 @@ void HariMain(void) {
     memman_free(memman, 0x00001000, 0x0009e000); //0x00001000 - 0x0009efff
     memman_free(memman, 0x00400000, memtotal - 0x00400000);
 
-    _sprintf(str, "memory %dMB    free : %dKB", memtotal / (1024 * 1024), memman_total(memman) / 1024);
-    putfonts8_asc(binfo->vram, binfo->scrnx, 0, 32, COL8_FFFFFF, str);
+    init_palette();
 
-    //PIC1とキーボードを許可(11111001)
-    io_out8(PIC0_IMR, 0xf9);
-    //マウスを許可(11101111)
-    io_out8(PIC1_IMR, 0xef);
+    shtctl = shtctl_init(memman, binfo->vram, binfo->scrnx, binfo->scrny);
+    sht_back = sheet_alloc(shtctl);
+    sht_mouse = sheet_alloc(shtctl);
+
+    buf_back = (unsigned char *)memman_alloc_4k(memman, binfo->scrnx * binfo->scrny);
+    sheet_setbuf(sht_back, buf_back, binfo->scrnx, binfo->scrny, -1); //透明色なし
+    sheet_setbuf(sht_mouse, buf_mouse, 16, 16, 99);
+
+    init_screen(buf_back, binfo->scrnx, binfo->scrny);
+    sheet_slide(shtctl, sht_back, 0, 0);
+    sheet_updown(shtctl, sht_back, 0);
+
+    init_mouse_cursor8(buf_mouse, 99);
+    mx = (binfo->scrnx - 16) / 2;
+    my = (binfo->scrny - 28 - 16) / 2;
+    sheet_slide(shtctl, sht_mouse, mx, my);
+    sheet_updown(shtctl, sht_mouse, 1);
+
+    _sprintf(str, "(%d, %d)", mx, my);
+    putfonts8_asc(buf_back, binfo->scrnx, 0, 0, COL8_FFFFFF, str);
+
+    _sprintf(str, "memory %dMB    free : %dKB", memtotal / (1024 * 1024), memman_total(memman) / 1024);
+    putfonts8_asc(buf_back, binfo->scrnx, 0, 32, COL8_FFFFFF, str);
+
+    sheet_refresh(shtctl);
 
     for (;;) {
         io_cli();
@@ -67,10 +86,12 @@ void HariMain(void) {
 
                 boxfill8(binfo->vram, binfo->scrnx, COL8_008484, 0, 16, 15, 31);
                 putfonts8_asc(binfo->vram, binfo->scrnx, 0, 16, COL8_FFFFFF, str);
-
+                /*
                 _sprintf(str, "keybuf(r,w) = (%d : %d)", keyfifo.q, keyfifo.p);
                 boxfill8(binfo->vram, binfo->scrnx, COL8_008484, 0, 92, binfo->scrnx, 107);
                 putfonts8_asc(binfo->vram, binfo->scrnx, 0, 92, COL8_FFFFFF, str);
+                */
+                sheet_refresh(shtctl);
             }
             //マウス
             else if (fifo8_status(&mousefifo) != 0) {
@@ -91,10 +112,6 @@ void HariMain(void) {
                     boxfill8(binfo->vram, binfo->scrnx, COL8_008484, 32, 16, 320, 31);
                     putfonts8_asc(binfo->vram, binfo->scrnx, 32, 16, COL8_FFFFFF, str);
 
-                    //マウス移動
-                    //消す
-                    boxfill8(binfo->vram, binfo->scrnx, COL8_008484, mx, my, mx + 15, my + 15);
-
                     //値の書き換え
                     mx += mdec.x;
                     my += mdec.y;
@@ -110,8 +127,8 @@ void HariMain(void) {
                     boxfill8(binfo->vram, binfo->scrnx, COL8_008484, 0, 0, 79, 15);
                     putfonts8_asc(binfo->vram, binfo->scrnx, 0, 0, COL8_FFFFFF, str);
 
-                    //マウス描画
-                    putblock8_8(binfo->vram, binfo->scrnx, 16, 16, mx, my, mcursor, 16);
+                    //移動後の描画
+                    sheet_slide(shtctl, sht_mouse, mx, my);
                 }
             }
         }
