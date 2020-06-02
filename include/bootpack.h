@@ -18,21 +18,23 @@ struct BOOTINFO {
 
 struct MOUSE_DEC {
     unsigned char buf[3];
-    unsigned char phase;
+    unsigned char phase; //decode phase
     int x, y;
     int btn;
 };
 
-//bootpack.c
-#define MEMMAN_ADDR 0x003c0000
-#define MEMMAN_FREES 4090
+//memory.c
+#define EFLAGS_AC_BIT 0x00040000 //18(AC) bit
+#define CR0_CACHE_DISABLE 0x60000000 //30(CD), 21(PG) bit
+#define MEMMAN_ADDR 0x003c0000 //メモリ管理情報を置くアドレス
+#define MEMMAN_FREES 4090 //メモリの空き領域リストの最大個数
 
-struct FREEINFO{
+struct FREEINFO {
     unsigned int addr;
     unsigned int size;
 };
 
-struct MEMMAN{
+struct MEMMAN {
     int frees; //空き情報の個数
     int maxfrees; //freesの最大値
     int lostsize; //解放に失敗した合計サイズ
@@ -44,8 +46,11 @@ unsigned int memtest(unsigned int start, unsigned int end);
 unsigned int memtest_sub(unsigned int start, unsigned int end);
 void memman_init(struct MEMMAN *man);
 unsigned int memman_total(struct MEMMAN *man);
-unsigned int memmam_alloc(struct MEMMAN *man, unsigned int size);
+unsigned int memman_alloc(struct MEMMAN *man, unsigned int size);
 int memman_free(struct MEMMAN *man, unsigned int addr, unsigned int size);
+unsigned int memman_alloc_4k(struct MEMMAN *man, unsigned int size);
+int memman_free_4k(struct MEMMAN *man, unsigned int addr, unsigned int size);
+
 //asm_func.s
 void io_hlt(void);
 void io_cli(void);
@@ -58,6 +63,8 @@ void io_store_eflags(int eflags);
 void asm_inthandler21(void);
 void asm_inthandler2c(void);
 void asm_inthandler27(void);
+int load_cr0(void);
+void store_cr0(int cr0);
 
 //dsctbl.c
 #define ADR_IDT 0x0026f800
@@ -166,10 +173,10 @@ extern struct FIFO8 mousefifo;
 
 struct FIFO8 {
     unsigned char *buf;
-    int p, q;
+    int p, q; //write, read
     int size;
     int free;
-    int flags;
+    int flags; //overrun
 };
 
 void fifo8_init(struct FIFO8 *fifo, int size, unsigned char *buf);
@@ -186,5 +193,38 @@ void wait_KBC_sendready(void);
 void inthandler2c(int *esp);
 void enable_mouse(struct MOUSE_DEC *mdec);
 int mouse_decode(struct MOUSE_DEC *mdec, unsigned char dat);
+
+//sheet.c
+#define MAX_SHEETS 256
+#define SHEET_USE 1
+
+struct SHEET {
+    unsigned char *buf;
+    int bxsize; //大きさ
+    int bysize;
+    int vx0; //位置
+    int vy0;
+    int col_inv; //透明色
+    int height; //高さ
+    int flags;
+};
+
+struct SHTCTL {
+    unsigned char *vram;
+    int xsize;
+    int ysize;
+    int top; //一番上のSHEETの高さ
+    struct SHEET *sheets[MAX_SHEETS];
+    struct SHEET sheets0[MAX_SHEETS];
+};
+
+struct SHTCTL *shtctl_init(struct MEMMAN *memman, unsigned char *vram, int xsize, int ysize);
+struct SHEET *sheet_alloc(struct SHTCTL *ctl);
+void sheet_setbuf(struct SHEET *sht, unsigned char *buf, int xsize, int ysize, int col_inv);
+void sheet_updown(struct SHTCTL *ctl, struct SHEET *sht, int height);
+void sheet_refresh(struct SHTCTL *ctl, struct SHEET *sht, int bx0, int by0, int bx1, int by1);
+void sheet_slide(struct SHTCTL *ctl, struct SHEET *sht, int vx0, int vy0);
+void sheet_free(struct SHTCTL *ctl, struct SHEET *sht);
+void sheet_refreshsub(struct SHTCTL *ctl, int vx0, int vy0, int vx1, int vy1);
 
 #endif
