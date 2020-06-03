@@ -125,6 +125,11 @@ void sheet_refreshsub(struct SHTCTL *ctl, int vx0, int vy0, int vx1, int vy1) {
 
     struct SHEET *sht;
 
+    if (vx0 < 0) vx = 0;
+    if (vy0 < 0) vy = 0;
+    if (vx1 > ctl->xsize) vx1 = ctl->xsize;
+    if (vy1 > ctl->ysize) vy1 = ctl->ysize;
+
     for(h = 0; h <= ctl->top; h++){
         sht = ctl->sheets[h];
         buf = sht->buf;
