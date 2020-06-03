@@ -13,8 +13,10 @@ struct SHTCTL *shtctl_init(struct MEMMAN *memman, unsigned char *vram, int xsize
     ctl->ysize = ysize;
 
     ctl->top = -1; //1枚もない
-    for (i = 0; i < MAX_SHEETS; i++)
+    for (i = 0; i < MAX_SHEETS; i++) {
         ctl->sheets0[i].flags = 0;
+        ctl->sheets0[i].ctl = ctl;
+    }
 
 err:
     return ctl;
@@ -45,9 +47,10 @@ void sheet_setbuf(struct SHEET *sht, unsigned char *buf, int xsize, int ysize, i
     sht->col_inv = col_inv;
 }
 
-void sheet_updown(struct SHTCTL *ctl, struct SHEET *sht, int height) {
+void sheet_updown(struct SHEET *sht, int height) {
     int h;
     int old = sht->height;
+    struct SHTCTL *ctl = sht->ctl;
 
     //指定が高すぎたら一番上になるように修正
     if (height > ctl ->top)
@@ -107,7 +110,8 @@ void sheet_updown(struct SHTCTL *ctl, struct SHEET *sht, int height) {
     sheet_refreshsub(ctl, sht->vx0, sht->vy0, sht->vx0 + sht->bxsize,  sht->vy0 + sht->bysize);
 }
 
-void sheet_refresh(struct SHTCTL *ctl, struct SHEET *sht, int bx0, int by0, int bx1, int by1) {
+void sheet_refresh(struct SHEET *sht, int bx0, int by0, int bx1, int by1) {
+    struct SHTCTL *ctl = sht->ctl;
     if (sht->height >= 0) //表示中なら描き直す
         sheet_refreshsub(ctl, sht->vx0 + bx0, sht->vy0 + by0, sht->vx0 + bx1, sht->vy0 + by1);
 }
@@ -156,12 +160,14 @@ void sheet_refreshsub(struct SHTCTL *ctl, int vx0, int vy0, int vx1, int vy1) {
     }
 }
 
-void sheet_slide(struct SHTCTL *ctl, struct SHEET *sht, int vx0, int vy0) {
+void sheet_slide(struct SHEET *sht, int vx0, int vy0) {
     int old_vx0 = sht->vx0;
     int old_vy0 = sht->vy0;
 
     sht->vx0 = vx0;
     sht->vy0 = vy0;
+
+    struct SHTCTL *ctl = sht->ctl;
 
     if (sht->height >= 0) {
         sheet_refreshsub(ctl, old_vx0, old_vy0, old_vx0 + sht->bxsize, old_vy0 + sht->bysize);
@@ -169,9 +175,10 @@ void sheet_slide(struct SHTCTL *ctl, struct SHEET *sht, int vx0, int vy0) {
     }
 }
 
-void sheet_free(struct SHTCTL *ctl, struct SHEET *sht) {
+void sheet_free(struct SHEET *sht) {
+    struct SHTCTL *ctl = sht->ctl;
     if (sht->height >= 0)
-        sheet_updown(ctl, sht, -1);
+        sheet_updown(sht, -1);
 
     sht->flags = 0;
 }
