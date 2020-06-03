@@ -229,4 +229,7 @@ void sheet_slide(struct SHEET *sht, int vx0, int vy0);
 void sheet_free(struct SHEET *sht);
 void sheet_refreshsub(struct SHTCTL *ctl, int vx0, int vy0, int vx1, int vy1);
 
+//window
+void make_window8(unsigned char *buf, int xsize, int ysize, char *title);
+
 #endif
