@@ -116,8 +116,8 @@ void HariMain(void) {
                     //画面外に行かないようにする
                     if (mx < 0) mx = 0;
                     if (my < 0) my = 0;
-                    if (mx > binfo->scrnx - 16) mx = binfo->scrnx - 16;
-                    if (my > binfo->scrny - 16) my = binfo->scrny - 16;
+                    if (mx > binfo->scrnx - 1) mx = binfo->scrnx - 1;
+                    if (my > binfo->scrny - 1) my = binfo->scrny - 1;
 
                     //座標情報
                     _sprintf(str, "(%3d, %3d)", mx, my);
