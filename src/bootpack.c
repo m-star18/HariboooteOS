@@ -1,6 +1,6 @@
 #include "bootpack.h"
 
-void HariMain(void){
+void HariMain(void) {
     char *vram;
     char str[32] = {0};
     char mcursor[16 * 16];
@@ -93,7 +93,7 @@ void HariMain(void){
         sheet_refresh(sht_win, 40, 28, 120, 44);
 
         io_cli();
-        if (fifo8_status(&keyfifo) + fifo8_status(&mousefifo)== 0) {
+        if (fifo8_status(&keyfifo) + fifo8_status(&mousefifo) == 0) {
             //io_stihlt();
             io_sti();
         }
@@ -190,9 +190,9 @@ void make_window8(unsigned char *buf, int xsize, int ysize, char *title) {
     for (y = 0; y < 14; y++) {
         for (x = 0; x < 16; x++) {
             c = closebtn[y][x];
-            if (c == '@') c = COL8_000000;
-            else if(c == '$') c = COL8_848484;
-            else if(c == 'Q') c = COL8_C6C6C6;
+            if(c == '@') c = COL8_000000;
+            else if (c == '$') c = COL8_848484;
+            else if (c == 'Q') c = COL8_C6C6C6;
             else c = COL8_FFFFFF;
 
             buf[(5 + y) * xsize + (xsize - 21 + x)] = c;
