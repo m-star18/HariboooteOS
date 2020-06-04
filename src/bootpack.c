@@ -1,6 +1,6 @@
 #include "bootpack.h"
 
-void HariMain(void){
+void HariMain(void) {
     char *vram;
     char str[32] = {0};
     char mcursor[16 * 16];
@@ -31,14 +31,16 @@ void HariMain(void){
     init_gdtidt();
     //PICを初期化
     init_pic();
+    //タイマの初期化
+    init_pit();
     //キーボード初期化、マウス有効化
     init_keyboard();
     enable_mouse(&mdec);
 
     //割り込みの受付完了を開始
     io_sti();
-    //PIC1とキーボードを許可(11111001)
-    io_out8(PIC0_IMR, 0xf9);
+    //PIC1とPITとキーボードを許可(11111000)
+    io_out8(PIC0_IMR, 0xf8);
     //マウスを許可(11101111)
     io_out8(PIC1_IMR, 0xef);
 
@@ -87,13 +89,13 @@ void HariMain(void){
 
     for(;;) {
         count++;
-        _sprintf(str, "%010d", count);
+        _sprintf(str, "%010d", timerctl.count);
         boxfill8(buf_win, 160, COL8_C6C6C6, 40, 28, 119, 43);
         putfonts8_asc(buf_win, 160, 40, 28, COL8_000000, str);
         sheet_refresh(sht_win, 40, 28, 120, 44);
 
         io_cli();
-        if (fifo8_status(&keyfifo) + fifo8_status(&mousefifo)== 0) {
+        if (fifo8_status(&keyfifo) + fifo8_status(&mousefifo) == 0) {
             //io_stihlt();
             io_sti();
         }
@@ -190,9 +192,9 @@ void make_window8(unsigned char *buf, int xsize, int ysize, char *title) {
     for (y = 0; y < 14; y++) {
         for (x = 0; x < 16; x++) {
             c = closebtn[y][x];
-            if (c == '@') c = COL8_000000;
-            else if(c == '$') c = COL8_848484;
-            else if(c == 'Q') c = COL8_C6C6C6;
+            if(c == '@') c = COL8_000000;
+            else if (c == '$') c = COL8_848484;
+            else if (c == 'Q') c = COL8_C6C6C6;
             else c = COL8_FFFFFF;
 
             buf[(5 + y) * xsize + (xsize - 21 + x)] = c;
