@@ -8,7 +8,7 @@
 .global io_load_eflags, io_store_eflags
 .global load_gdtr, load_idtr
 .global load_cr0, store_cr0
-.global asm_inthandler21, asm_inthandler2c, asm_inthandler27
+.global asm_inthandler21, asm_inthandler2c, asm_inthandler27, asm_inthandler20
 .global memtest_sub
 
 .extern inthandler21, inthandler2c, inthandler27
@@ -159,6 +159,23 @@ asm_inthandler27:
     mov %ax, %ds
     mov %ax, %es
     call inthandler27
+    pop %eax
+    popa
+    pop %ds
+    pop %es
+    iret
+
+#void asm_inthandler20(void)
+asm_inthandler20:
+    push %es
+    push %ds
+    pusha
+    movl %esp, %eax
+    push %eax
+    movw %ss, %ax
+    movw %ax, %ds
+    movw %ax, %es
+    call inthandler20
     pop %eax
     popa
     pop %ds

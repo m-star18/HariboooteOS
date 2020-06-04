@@ -233,4 +233,10 @@ void sheet_refreshmap(struct SHTCTL *ctl, int vx0, int vy0, int vx1, int vy1, in
 
 //window
 void make_window8(unsigned char *buf, int xsize, int ysize, char *title);
+
+#define PIT_CTL 0x0043
+#define PIT_CNT0 0x0040
+
+void init_pit(void);
+
 #endif
