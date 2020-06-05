@@ -6,6 +6,7 @@ void HariMain(void) {
     char mcursor[16 * 16];
     char keybuf[KEYBUF_SIZE];
     char mousebuf[MOUSEBUF_SIZE];
+    char timerbuf[8];
     int mx, my;
     int i, j;
     unsigned int memtotal;
@@ -24,8 +25,11 @@ void HariMain(void) {
     unsigned char buf_mouse[256];
     unsigned char *buf_win;
 
+    struct FIFO8 timerfifo;
+
     fifo8_init(&keyfifo, sizeof(keybuf), keybuf);
     fifo8_init(&mousefifo, sizeof(mousebuf), mousebuf);
+    fifo8_init(&timerfifo, sizeof(timerbuf), timerbuf);
 
     //GDT, IDTを初期化
     init_gdtidt();
@@ -86,6 +90,8 @@ void HariMain(void) {
     putfonts8_asc(buf_back, binfo->scrnx, 0, 32, COL8_FFFFFF, str);
 
     sheet_refresh(sht_back, 0, 0, binfo->scrnx, 48);
+
+    settimer(1000, &timerfifo, 1);
 
     for(;;) {
         count++;
@@ -149,6 +155,13 @@ void HariMain(void) {
 
                     //移動後の描画
                     sheet_slide(sht_mouse, mx, my);
+                }
+                //タイマ
+                else if (fifo8_status(&timerfifo) != 0) {
+                    i = fifo8_get(&timerfifo);
+                    io_sti();
+                    putfonts8_asc(buf_back, binfo->scrnx, 0, 64, COL8_FFFFFF, "10[sec]");
+                    sheet_refresh(sht_back, 0, 64, 56, 80);
                 }
             }
         }

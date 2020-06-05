@@ -241,10 +241,15 @@ void make_window8(unsigned char *buf, int xsize, int ysize, char *title);
 
 struct TIMERCTL {
     unsigned int count;
+    unsigned int timeout;
+    struct FIFO8 *fifo;
+    unsigned char data;
 };
 
 extern struct TIMERCTL timerctl;
 
 void init_pit(void);
+void settimer(unsigned int timeout, struct FIFO8 *fifo, unsigned char data);
+void inthandler20(int *esp);
 
 #endif
