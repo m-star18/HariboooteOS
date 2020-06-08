@@ -111,9 +111,6 @@ void HariMain(void) {
 
     for(;;) {
         count++;
-        _sprintf(str, "%010d", timerctl.count);
-        putfonts8_asc_sht(sht_win, 40, 28, COL8_000000, COL8_C6C6C6, str, 10);
-
         io_cli();
         if (fifo8_status(&keyfifo) + fifo8_status(&mousefifo) + fifo8_status(&timerfifo) == 0) {
             //io_stihlt();
@@ -169,12 +166,13 @@ void HariMain(void) {
                 io_sti();
 
                 if (i == 10) {
-                    putfonts8_asc(buf_back, binfo->scrnx, 0, 64, COL8_FFFFFF, "10[sec]");
-                    sheet_refresh(sht_back, 0, 64, 56, 80);
+                    putfonts8_asc_sht(sht_back, 0, 64, COL8_FFFFFF, COL8_008484, "10[sec]", 7);
+                    _sprintf(str, "%010d", count);
+                    putfonts8_asc_sht(sht_win, 40, 28, COL8_000000, COL8_C6C6C6, str, 10);
                 }
                 if (i == 3) {
-                    putfonts8_asc(buf_back, binfo->scrnx, 0, 80, COL8_FFFFFF, "3[sec]");
-                    sheet_refresh(sht_back, 0, 80, 48, 96);
+                    putfonts8_asc_sht(sht_back, 0, 80, COL8_FFFFFF, COL8_008484, "3[sec]", 6);
+                    count = 0;
                 } else {
                     if (i != 0) {
                         timer_init(timer3, &timerfifo, 0);
