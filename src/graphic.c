@@ -1,8 +1,7 @@
 #include "bootpack.h"
 
 void init_mouse_cursor8(char *mouse, char bc) {
-    int x;
-    int y;
+    int x, y;
 
     static char cursor[16][16] = {
         "**************..",
@@ -39,8 +38,7 @@ void init_mouse_cursor8(char *mouse, char bc) {
 }
 
 void putblock8_8(char *vram, int vxsize, int pxsize, int pysize, int px0, int py0, char *buf, int bxsize) {
-    int x;
-    int y;
+    int x, y;
 
     for (y = 0; y < pysize; y++) {
         for (x = 0; x < pxsize; x++)
@@ -125,6 +123,7 @@ void init_palette(void) {
     };
 
     set_palette(0, 15, table_rgb);
+    return;
 }
 
 void set_palette(int start, int end, unsigned char *rgb) {
@@ -143,4 +142,5 @@ void set_palette(int start, int end, unsigned char *rgb) {
     }
 
     io_store_eflags(eflags); //割り込み許可フラグを戻す
+    return;
 }

@@ -1,8 +1,14 @@
 #include "bootpack.h"
 
-void enable_mouse(struct MOUSE_DEC *mdec) {
-    //マウス有効化
+struct FIFO32 *mousefifo;
+int mousedata0;
 
+void enable_mouse(struct FIFO32 *fifo, int data0, struct MOUSE_DEC *mdec) {
+    //fifo設定
+    mousefifo = fifo;
+    mousedata0 = data0;
+
+    //マウス有効化
     wait_KBC_sendready();
     //マウスを設定
     //キーボードコントローラに0xd4を送るとマウスに転送してくれる
@@ -18,8 +24,7 @@ void enable_mouse(struct MOUSE_DEC *mdec) {
 
 int mouse_decode(struct MOUSE_DEC *mdec, unsigned char dat) {
     if (mdec->phase == 0) {
-        if(dat == 0xfa)
-            mdec->phase++;
+        if (dat == 0xfa) mdec->phase++;
 
         return 0;
     }
@@ -56,7 +61,7 @@ int mouse_decode(struct MOUSE_DEC *mdec, unsigned char dat) {
 
         //x, yは基本的に2, 3byte目のデータをそのまま使う
         //1byte目のx, yそれぞれに対応するbitが1だと上位24bitを全部1になる
-        if((mdec->buf[0] & 0x10) != 0)
+        if ((mdec->buf[0] & 0x10) != 0)
             mdec->x |= 0xffffff00;
 
         if ((mdec->buf[0] & 0x20) != 0)
@@ -81,5 +86,5 @@ void inthandler2c(int *esp) {
     io_out8(PIC0_OCW2, 0x62);
 
     data = io_in8(PORT_KEYDAT);
-    fifo8_put(&mousefifo, data);
+    fifo32_put(mousefifo, data + mousedata0);
 }

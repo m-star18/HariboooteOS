@@ -1,8 +1,5 @@
 #include "bootpack.h"
 
-struct FIFO8 keyfifo;
-struct FIFO8 mousefifo;
-
 void init_pic() {
     /*
      * IMR : interrupt mask register
@@ -37,4 +34,5 @@ void init_pic() {
 
 void inthandler27(int *esp) {
     io_out8(PIC0_OCW2, 0x67); /* IRQ-07受付完了をPICに通知(7-1参照) */
+    return;
 }

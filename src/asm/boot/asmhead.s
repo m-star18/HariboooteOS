@@ -62,7 +62,6 @@
     orl $0x00000001, %eax
     movl %eax, %cr0 #ページングを使用しないプロテクトモード(CR0の最上位bitを0, 最下位bitを1にする)
     jmp pipelineflush
-
 pipelineflush:
     movw $1 * 8, %ax
     movw %ax, %ds
@@ -78,7 +77,6 @@ movl $bootpack, %esi #source (このasmheadの後ろにbootpackのバイナリ�
 movl $BOTPAK, %edi #destination
 movl $512 * 1024 / 4, %ecx #memcpyのサイズはdouble word(4byte=32bit)単位なので、コピーするバイト数を4で割る
 call memcpy
-
 
 #ディスクデータを本来の位置へ転送
 
@@ -108,7 +106,6 @@ add %ebx, %esi
 movl 12(%ebx), %edi #転送先
 call memcpy
 
-
 skip:
     mov 12(%ebx), %esp #スタック初期化
 
@@ -118,7 +115,7 @@ skip:
     #実際には0x28001b番地(GDTで設定した通り)、これはbootpackの0x1b(=27byte目)番地にあたる
     #jmp先のデータはE9(JMP)で、bootpackのエントリポイントにjmpする（らしい？）
     #完全に理解した（わかってない）
-    ljmpl $2*8, $0x0000001b
+    ljmpl $2 * 8, $0x0000001b
 
 #キーボードの処理が終わるのを待つ
 waitkbdout:
@@ -141,7 +138,6 @@ memcpy:
 
 #16byteアラインメント(GDT0ラベルが8の倍数になってないとパフォーマンスが落ちるらしい、バイト境界とかそのへんの話？)
 .align 16
-
 GDT0:
     #bootpacckを動かすための仮のGDT
     #以下で設定されるものと同じ

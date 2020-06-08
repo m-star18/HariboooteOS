@@ -61,7 +61,6 @@ retry:
 
     jmp retry
 
-
 next:
     movw %es, %ax
     add $0x20, %ax  #512 / 16 = 0x20
@@ -80,7 +79,6 @@ next:
     add $1, %ch # cylinder
     cmp $CYLS, %ch # read to cylinder CYLS
     jb readloop
-
 
     movb $CYLS, (_CYLS)
     jmp 0xc200  # jump to os program
@@ -106,10 +104,8 @@ putloop:
     int $0x10
     jmp putloop
 
-
 msg:
     .string "\nload error\n\n"
-
 
 //end of boot sector(must be 0x55, 0xaa)
 .org 0x01fe
