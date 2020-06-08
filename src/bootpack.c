@@ -132,10 +132,7 @@ void HariMain(void) {
 
                 io_sti();
                 _sprintf(str, "%02X", i);
-
-                boxfill8(buf_back, binfo->scrnx, COL8_008484, 0, 16, 15, 31);
-                putfonts8_asc(buf_back, binfo->scrnx, 0, 16, COL8_FFFFFF, str);
-                sheet_refresh(sht_back, 0, 16, 16, 32);
+                putfonts8_asc_sht(sht_back, 0, 16, COL8_FFFFFF, COL8_008484, str, 2);
             }
             //マウス
             else if (fifo8_status(&mousefifo) != 0) {
@@ -143,7 +140,6 @@ void HariMain(void) {
                 io_sti();
 
                 if (mouse_decode(&mdec, i) != 0) {
-                    //_sprintf(str, "[lcr %04d %04d]", mdec.x, mdec.y);
                     _sprintf(str, "[lcr %04d %04d]", mdec.x, mdec.y);
 
                     //1bit目 Left
@@ -153,9 +149,7 @@ void HariMain(void) {
                     //3bit目 Right
                     if ((mdec.btn & 0x02) != 0) str[3] = 'R';
 
-                    boxfill8(buf_back, binfo->scrnx, COL8_008484, 32, 16, 32 + 15 * 8 - 1, 31);
-                    putfonts8_asc(buf_back, binfo->scrnx, 32, 16, COL8_FFFFFF, str);
-                    sheet_refresh(sht_back, 32, 16, 32 + 15 * 8, 32);
+                    putfonts8_asc_sht(sht_back, 32, 16, COL8_FFFFFF, COL8_008484, str, 15);
 
                     //値の書き換え
                     mx += mdec.x;
@@ -169,9 +163,7 @@ void HariMain(void) {
 
                     //座標情報
                     _sprintf(str, "(%3d, %3d)", mx, my);
-                    boxfill8(buf_back, binfo->scrnx, COL8_008484, 0, 0, 79, 15);
-                    putfonts8_asc(buf_back, binfo->scrnx, 0, 0, COL8_FFFFFF, str);
-                    sheet_refresh(sht_back, 0, 0, 80, 16);
+                    putfonts8_asc_sht(sht_back, 0, 0, COL8_FFFFFF, COL8_008484, str, 8);
 
                     //移動後の描画
                     sheet_slide(sht_mouse, mx, my);
@@ -205,6 +197,12 @@ void HariMain(void) {
             }
         }
     }
+}
+
+void putfonts8_asc_sht(struct SHEET *sht, int x, int y, int c, int b, char *s, int l) {
+    boxfill8(sht->buf, sht->bxsize, b, x, y, x + l * 8 - 1, y + 15);
+    putfonts8_asc(sht->buf, sht->bxsize, x, y, c, s);
+    sheet_refresh(sht, x, y, x + l * 8, y + 16);
 }
 
 void make_window8(unsigned char *buf, int xsize, int ysize, char *title) {
