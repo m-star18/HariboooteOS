@@ -11,7 +11,7 @@
 .global asm_inthandler21, asm_inthandler2c, asm_inthandler27, asm_inthandler20
 .global memtest_sub
 
-.extern inthandler21, inthandler2c, inthandler27
+.extern inthandler21, inthandler2c, inthandler27, inthandler20
 
 #void io_htl(void)
 io_hlt:
@@ -119,12 +119,12 @@ asm_inthandler21:
     push %ds
     pusha
     movl %esp, %eax
-    push %eax
+    pushl %eax
     movw %ss, %ax
     movw %ax, %ds
     movw %ax, %es
     call inthandler21
-    pop %eax
+    popl %eax
     popa
     pop %ds
     pop %es
@@ -138,11 +138,11 @@ asm_inthandler2c:
     pusha
     mov %esp, %eax
     push %eax
-    mov %ss, %ax
-    mov %ax, %ds
-    mov %ax, %es
+    movw %ss, %ax
+    movw %ax, %ds
+    movw %ax, %es
     call inthandler2c
-    pop %eax
+    popl %eax
     popa
     pop %ds
     pop %es
@@ -155,11 +155,11 @@ asm_inthandler27:
     pusha
     mov %esp, %eax
     push %eax
-    mov %ss, %ax
-    mov %ax, %ds
-    mov %ax, %es
+    movw %ss, %ax
+    movw %ax, %ds
+    movw %ax, %es
     call inthandler27
-    pop %eax
+    popl %eax
     popa
     pop %ds
     pop %es
@@ -170,13 +170,13 @@ asm_inthandler20:
     push %es
     push %ds
     pusha
-    movl %esp, %eax
+    mov %esp, %eax
     push %eax
     movw %ss, %ax
     movw %ax, %ds
     movw %ax, %es
     call inthandler20
-    pop %eax
+    popl %eax
     popa
     pop %ds
     pop %es
@@ -189,7 +189,7 @@ memtest_sub:
     push %ebx
     movl $0xaa55aa55, %esi # pat0 = 0xaa55aa55
     movl $0x55aa55aa, %edi # pat1 = 0x55aa55aa
-    movl 12 + 4 (%esp), %eax  # i = start
+    movl 12 + 4(%esp), %eax  # i = start
 
 mts_loop:
     movl %eax, %ebx
@@ -204,13 +204,12 @@ mts_loop:
     jne mts_fin
     movl %edx, (%ebx)
     addl $0x1000, %eax # i += 0x1000 (4KB進める)
-    cmpl 12 + 8 (%esp), %eax # if (i <= end) goto mts_loop
+    cmpl 12 + 8(%esp), %eax # if (i <= end) goto mts_loop
     jbe mts_loop
     pop %ebx
     pop %esi
     pop %edi
     ret
-
 mts_fin:
     movl %edx, (%ebx) #*p = old
     pop %ebx

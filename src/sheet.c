@@ -77,8 +77,8 @@ void sheet_updown(struct SHEET *sht, int height) {
             ctl->sheets[height] = sht;
             sheet_refreshmap(ctl, sht->vx0, sht->vy0, sht->vx0 + sht->bxsize, sht->vy0 + sht->bysize, height + 1);
             sheet_refreshsub(ctl, sht->vx0, sht->vy0, sht->vx0 + sht->bxsize, sht->vy0 + sht->bysize, height + 1, old);
-        }
-        else { //非表示にする
+
+        } else { //非表示にする
             //上になっているものおろす
             if (ctl->top > old) { //元の位置よりも上シートが有る
                 for (h = old; h < ctl->top; h++) {
@@ -115,9 +115,9 @@ void sheet_updown(struct SHEET *sht, int height) {
             ctl->sheets[height] = sht;
             ctl->top++;
         }
+        sheet_refreshmap(ctl, sht->vx0, sht->vy0, sht->vx0 + sht->bxsize, sht->vy0 + sht->bysize, height);
+        sheet_refreshsub(ctl, sht->vx0, sht->vy0, sht->vx0 + sht->bxsize, sht->vy0 + sht->bysize, height, height);
     }
-    sheet_refreshmap(ctl, sht->vx0, sht->vy0, sht->vx0 + sht->bxsize, sht->vy0 + sht->bysize, height);
-    sheet_refreshsub(ctl, sht->vx0, sht->vy0, sht->vx0 + sht->bxsize, sht->vy0 + sht->bysize, height, height);
 }
 
 void sheet_refresh(struct SHEET *sht, int bx0, int by0, int bx1, int by1) {
@@ -145,7 +145,7 @@ void sheet_refreshsub(struct SHTCTL *ctl, int vx0, int vy0, int vx1, int vy1, in
     if (vx1 > ctl->xsize) vx1 = ctl->xsize;
     if (vy1 > ctl->ysize) vy1 = ctl->ysize;
 
-    for(h = h0; h <= ctl->top; h++){
+    for (h = h0; h <= ctl->top; h++) {
         sht = ctl->sheets[h];
         buf = sht->buf;
         sid = sht - ctl->sheets0;
@@ -164,7 +164,6 @@ void sheet_refreshsub(struct SHTCTL *ctl, int vx0, int vy0, int vx1, int vy1, in
             vy = sht->vy0 + by;
             for (bx = bx0; bx < bx1; bx++) {
                 vx = sht->vx0 + bx;
-                c = buf[by * sht->bxsize + bx];
                 if (map[vy * ctl->xsize + vx] == sid)
                     vram[vy * ctl->xsize + vx] = buf[by * sht->bxsize + bx];
             }

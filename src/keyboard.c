@@ -1,16 +1,22 @@
 #include "bootpack.h"
 
+struct FIFO32 *keyfifo;
+int keydata0;
+
 void wait_KBC_sendready(void) {
     //キーボードコントローラの準備ができるまで待つ
     //port 0x0064の2bit目が0になったら準備完了なので抜ける
 
-    for (;;)
-        if((io_in8(PORT_KEYSTA) & KEYSTA_SEND_NOTREADY) == 0) break;
+    for(;;)
+        if ((io_in8(PORT_KEYSTA) & KEYSTA_SEND_NOTREADY) == 0) break;
 }
 
-void init_keyboard(void) {
-    //キーボードコントローラ初期化
+void init_keyboard(struct FIFO32 *fifo, int data0) {
+    //fifo設定
+    keyfifo = fifo;
+    keydata0 = data0;
 
+    //キーボードコントローラ初期化
     wait_KBC_sendready();
     //モード設定のためのコマンド(0x60)
     io_out8(PORT_KEYCMD, KEYCMD_WRITE_MODE);
@@ -29,5 +35,5 @@ void inthandler21(int *esp) {
     io_out8(PIC0_OCW2, 0x61);
     data = io_in8(PORT_KEYDAT);
 
-    fifo8_put(&keyfifo, data);
+    fifo32_put(keyfifo, data + keydata0);
 }

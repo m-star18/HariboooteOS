@@ -60,10 +60,10 @@ void io_out8(int port, int data);
 int io_in8(int port);
 int io_load_eflags(void);
 void io_store_eflags(int eflags);
-void asm_inthandler20(void);
 void asm_inthandler21(void);
 void asm_inthandler2c(void);
 void asm_inthandler27(void);
+void asm_inthandler20(void);
 int load_cr0(void);
 void store_cr0(int cr0);
 
@@ -166,13 +166,10 @@ void putblock8_8(char *vram, int vxsize, int pxsize, int pysize, int px0, int py
 void init_pic(void);
 void inthandler27(int *esp);
 
-extern struct FIFO8 keyfifo;
-extern struct FIFO8 mousefifo;
-
 //fifo.c
 #define FLAGS_OVERRUN 0x0001
 
-struct FIFO8 {
+struct FIFO8{
     unsigned char *buf;
     int p, q; //write, read
     int size;
@@ -185,14 +182,32 @@ int fifo8_put(struct FIFO8 *fifo, unsigned char data);
 int fifo8_get(struct FIFO8 *fifo);
 int fifo8_status(struct FIFO8 *fifo);
 
+struct FIFO32{
+    int *buf;
+    int p, q; //write, read
+    int size;
+    int free;
+    int flags; //overrun
+};
+
+void fifo32_init(struct FIFO32 *fifo, int size, int *buf);
+int fifo32_put(struct FIFO32 *fifo, int data);
+int fifo32_get(struct FIFO32 *fifo);
+int fifo32_status(struct FIFO32 *fifo);
+
 //keyboard.c
+extern struct FIFO32 *keyfifo;
+extern int keydata0;
+
 void inthandler21(int *esp);
-void init_keyboard(void);
+void init_keyboard(struct FIFO32 *fifo, int data0);
 void wait_KBC_sendready(void);
 
 //mouse.c
+extern struct FIFO32 *mousefifo;
+extern int mousedata0;
 void inthandler2c(int *esp);
-void enable_mouse(struct MOUSE_DEC *mdec);
+void enable_mouse(struct FIFO32 *fifo, int data0, struct MOUSE_DEC *mdec);
 int mouse_decode(struct MOUSE_DEC *mdec, unsigned char dat);
 
 //sheet.c
@@ -208,7 +223,6 @@ struct SHEET {
     int col_inv; //透明色
     int height; //高さ
     int flags;
-
     struct SHTCTL *ctl;
 };
 
@@ -247,11 +261,11 @@ void make_window8(unsigned char *buf, int xsize, int ysize, char *title);
 struct TIMER {
     unsigned int timeout;
     unsigned int flags;
-    struct FIFO8 *fifo;
-    unsigned char data;
+    struct FIFO32 *fifo;
+    int data;
 };
 
-struct TIMERCTL {
+struct TIMERCTL{
     unsigned int count;
     unsigned int next;
     unsigned int using;
@@ -264,8 +278,11 @@ extern struct TIMERCTL timerctl;
 void init_pit(void);
 struct TIMER *timer_alloc(void);
 void timer_free(struct TIMER *timer);
-void timer_init(struct TIMER *timer, struct FIFO8 *fifo, unsigned char data);
+void timer_init(struct TIMER *timer, struct FIFO32 *fifo, unsigned char data);
 void timer_settime(struct TIMER *timer, unsigned int timeout);
 void inthandler20(int *esp);
+
+//bootpack.c
+void putfonts8_asc_sht(struct SHEET *sht, int x, int y, int c, int b, char *s, int l);
 
 #endif

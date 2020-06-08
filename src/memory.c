@@ -105,7 +105,7 @@ int memman_free(struct MEMMAN *man, unsigned int addr, unsigned int size) {
 
     //挿入場所を決める（freeがaddr順に並んでいたほうがまとめやすい）
     for (i = 0; i < man->frees; i++)
-        if(man->free[i].addr > addr) break;
+        if (man->free[i].addr > addr) break;
 
     // free[i - 1].addr < addr < free[i]
     if (i > 0) {

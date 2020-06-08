@@ -31,7 +31,7 @@ void timer_free(struct TIMER *timer) {
     timer->flags = 0;
 }
 
-void timer_init(struct TIMER *timer, struct FIFO8 *fifo, unsigned char data) {
+void timer_init(struct TIMER *timer, struct FIFO32 *fifo, unsigned char data) {
     timer->fifo = fifo;
     timer->data = data;
 }
@@ -46,7 +46,7 @@ void timer_settime(struct TIMER *timer, unsigned int timeout) {
 
     //挿入場所を探す(i)
     for (i = 0; i < timerctl.using; i++)
-        if(timerctl.timers[i]->timeout >= timer->timeout) break;
+        if (timerctl.timers[i]->timeout >= timer->timeout) break;
 
     //i番目以降をずらす
     for (j = timerctl.using; j > i; j--)
@@ -69,14 +69,14 @@ void inthandler20(int *esp) {
 
     if (timerctl.next > timerctl.count) return;
 
-     //タイムアウトしたタイマの数を数える(timersにはタイムアウトが早い順に並ぶ)
+    //タイムアウトしたタイマの数を数える(timersにはタイムアウトが早い順に並ぶ)
     for (i = 0; i < timerctl.using; i++) {
         //timersのタイマはすべて動作中のタイマなので、flagsは見なくていい
         if (timerctl.timers[i]->timeout > timerctl.count) break;
 
         //timeout
         timerctl.timers[i]->flags = TIMER_FLAGS_ALLOC;
-        fifo8_put(timerctl.timers[i]->fifo, timerctl.timers[i]->data);
+        fifo32_put(timerctl.timers[i]->fifo, timerctl.timers[i]->data);
     }
 
     //タイムアウトした分を引く
