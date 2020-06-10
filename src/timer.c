@@ -4,16 +4,23 @@ struct TIMERCTL timerctl;
 
 void init_pit(void) {
     int i;
+    struct TIMER *t;
 
     io_out8(PIT_CTRL, 0x34);
     io_out8(PIT_CNT0, 0x9c);
     io_out8(PIT_CNT0, 0x2e);
 
     timerctl.count = 0;
-    timerctl.next = 0xFFFFFFFF;
-    timerctl.using = 0;
     for (i = 0; i < MAX_TIMER; i++)
         timerctl.timers0[i].flags = 0;
+
+    //dummy
+    t = timer_alloc();
+    t->timeout = 0xffffffff;
+    t->flags = TIMER_FLAGS_USING;
+    t->next = 0;
+    timerctl.t0 = t;
+    timerctl.next = 0xffffff;
 }
 
 struct TIMER *timer_alloc(void) {
@@ -38,30 +45,46 @@ void timer_init(struct TIMER *timer, struct FIFO32 *fifo, unsigned char data) {
 
 void timer_settime(struct TIMER *timer, unsigned int timeout) {
     int e;
-    int i, j;
+    struct TIMER *t;
+    struct TIMER *s;
+
     timer->timeout = timerctl.count + timeout;
     timer->flags = TIMER_FLAGS_USING;
 
     e = io_load_eflags();
+    io_cli();
 
-    //挿入場所を探す(i)
-    for (i = 0; i < timerctl.using; i++)
-        if (timerctl.timers[i]->timeout >= timer->timeout) break;
+     //先頭
+    t = timerctl.t0;
+    if (timer->timeout <= t->timeout) {
+        timerctl.t0 = timer;
+        timer->next = t;
+        timerctl.next = timer->timeout;
+        io_store_eflags(e);
+        return;
+    }
 
-    //i番目以降をずらす
-    for (j = timerctl.using; j > i; j--)
-        timerctl.timers[j] = timerctl.timers[j - 1];
+    for (;;) {
+        s = t;
+        t = t->next;
+        //最後まで行ったら抜ける
+        if (t == 0) break;
 
-    timerctl.using++;
-
-    timerctl.timers[i] = timer;
-    timerctl.next = timerctl.timers[i]->timeout;
-
-    io_store_eflags(e);
+        if (timer->timeout <= t->timeout) {
+            //sとtの間に入れる
+            //sはtの一つ前なので、この間に入れればいい
+            //中間への挿入なので、timerctl->nextなどは更新不要
+            s->next = timer;
+            timer->next = t;
+            io_store_eflags(e);
+            return;
+        }
+    }
 }
 
 void inthandler20(int *esp) {
     int i, j;
+    struct TIMER *timer;
 
     //割り込み受付を通知
     io_out8(PIC0_OCW2, 0x60);
@@ -69,26 +92,18 @@ void inthandler20(int *esp) {
 
     if (timerctl.next > timerctl.count) return;
 
-    //タイムアウトしたタイマの数を数える(timersにはタイムアウトが早い順に並ぶ)
-    for (i = 0; i < timerctl.using; i++) {
+    timer = timerctl.t0;
+    for (;;) {
         //timersのタイマはすべて動作中のタイマなので、flagsは見なくていい
-        if (timerctl.timers[i]->timeout > timerctl.count) break;
+        if (timer->timeout > timerctl.count) break;
 
         //timeout
-        timerctl.timers[i]->flags = TIMER_FLAGS_ALLOC;
-        fifo32_put(timerctl.timers[i]->fifo, timerctl.timers[i]->data);
+        timer->flags = TIMER_FLAGS_ALLOC;
+        fifo32_put(timer->fifo, timer->data);
+        timer = timer->next;
     }
 
-    //タイムアウトした分を引く
-    timerctl.using -= i;
-    //タイムアウトした個数分ずらす
-    for (j = 0; j < timerctl.using; j++)
-        timerctl.timers[j] = timerctl.timers[i + j];
-
-    //残りの動作中のタイマがあればnextを更新
-    if (timerctl.using > 0)
-        timerctl.next = timerctl.timers[0]->timeout;
-
-    else
-        timerctl.next = 0xffffffff;
+    //リスト先頭を更新
+    timerctl.t0 = timer;
+    timerctl.next = timerctl.t0->timeout;
 }
