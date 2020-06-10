@@ -259,17 +259,18 @@ void make_window8(unsigned char *buf, int xsize, int ysize, char *title);
 #define TIMER_FLAGS_USING 2
 
 struct TIMER {
+    struct TIMER *next;
     unsigned int timeout;
     unsigned int flags;
     struct FIFO32 *fifo;
     int data;
 };
 
-struct TIMERCTL{
+struct TIMERCTL {
     unsigned int count;
     unsigned int next;
     unsigned int using;
-    struct TIMER *timers[MAX_TIMER];
+    struct TIMER *t0;
     struct TIMER timers0[MAX_TIMER];
 };
 
