@@ -9,8 +9,6 @@ void HariMain(void) {
     int i, j;
     unsigned int memtotal;
 
-    unsigned int count = 0;
-
     struct BOOTINFO *binfo = (struct BOOTINFO *) ADR_BOOTINFO;
     struct MOUSE_DEC mdec;
     struct MEMMAN *memman = (struct MEMMAN *) MEMMAN_ADDR;
@@ -28,6 +26,15 @@ void HariMain(void) {
     struct TIMER *timer;
     struct TIMER *timer2;
     struct TIMER *timer3;
+
+    static char keytable[] = {
+        0, 0, '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '^', 0, 0,
+        'Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', '@', '[', 0, 0, 'A', 'S',
+        'D', 'F', 'G', 'H', 'J', 'K', 'L', ';', ':', 0, 0, ']', 'Z', 'X', 'C', 'V',
+        'B', 'N', 'M', ',', '.', '/', 0, '*', 0, ' ', 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, '7', '8', '9', '-', '4', '5', '6', '+', '1',
+        '2', '3', '0', '.'
+    };
 
     fifo32_init(&fifo, 128, fifobuf);
 
@@ -75,7 +82,7 @@ void HariMain(void) {
     my = (binfo->scrny - 28 - 16) / 2;
     sheet_slide(sht_mouse, mx, my);
 
-    make_window8(buf_win, 160, 52, "counter");
+    make_window8(buf_win, 160, 52, "window");
 
     sheet_slide(sht_win, 80, 72);
 
@@ -104,7 +111,6 @@ void HariMain(void) {
     timer_settime(timer3, 50);
 
     for(;;) {
-        count++;
         io_cli();
         if (fifo32_status(&fifo) == 0) {
             io_stihlt();
@@ -116,8 +122,13 @@ void HariMain(void) {
             if (i >= 256 && i <= 511) {
                 _sprintf(str, "%02X", i - 256);
                 putfonts8_asc_sht(sht_back, 0, 16, COL8_FFFFFF, COL8_008484, str, 2);
-                if (i == 0x1e + 256)
-                    putfonts8_asc_sht(sht_win, 49, 28, COL8_000000, COL8_C6C6C6, "A", 1);
+                if (i < 256 + 0x54) {
+                    if (keytable[i - 256] != 0) {
+                        str[0] = keytable[i - 256];
+                        str[1] = 0;
+                        putfonts8_asc_sht(sht_win, 49, 28, COL8_000000, COL8_C6C6C6, str, 1);
+                    }
+                }
             }
             //マウス
             else if (i >= 512 && i <= 767) {
@@ -153,17 +164,9 @@ void HariMain(void) {
             }
             //タイマ
             else if (i == 10) {
-                putfonts8_asc(buf_back, binfo->scrnx, 0, 64, COL8_FFFFFF, "10[sec]");
-                sheet_refresh(sht_back, 0, 64, 56, 80);
-
-                _sprintf(str, "%010d", count);
-                putfonts8_asc_sht(sht_win, 40, 28, COL8_000000, COL8_C6C6C6, str, 10);
-
+                putfonts8_asc_sht(sht_back, 0, 64, COL8_FFFFFF, COL8_008484, "10[sec]", 7);
             } else if (i == 3) {
-                putfonts8_asc(buf_back, binfo->scrnx, 0, 80, COL8_FFFFFF, "3[sec]");
-                sheet_refresh(sht_back, 0, 80, 48, 96);
-                count = 0;
-
+                putfonts8_asc_sht(sht_back, 0, 80, COL8_FFFFFF, COL8_008484, "3[sec]", 6);
             } else if (i == 1) {
                 timer_init(timer3, &fifo, 0);
                 boxfill8(buf_back, binfo->scrnx, COL8_FFFFFF, 8, 96, 15, 111);
