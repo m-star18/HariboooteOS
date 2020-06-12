@@ -14,15 +14,16 @@
 .set VRAM, 0x0ff8 # head address of video memory
 
     # set video mode
-    movb $0x13, %al # vga graphics 320x200 32bit color
-    movb $0x00, %ah
+    movw $0x101, %bx # vbe 640 x 480 x 8bit-color
+    movw $0x4f02, %ax
     int $0x10
 
     # save screen information
     movb $8, (VMODE)
-    movw $320, (SCRNX)
-    movw $200, (SCRNY)
-    movl $0x000a0000, (VRAM)
+    movw $640, (SCRNX)
+    movw $480, (SCRNY)
+    movl $0xfd000000, (VRAM)
+    #本では0xe0000000をVRAMにしているが、何故かそれだと真っ暗になって動かなかった
 
     # get keyboard led status from BIOS
     movb $0x02, %ah
