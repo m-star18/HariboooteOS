@@ -12,19 +12,81 @@
 .set SCRNX, 0x0ff4 #display resolution X
 .set SCRNY, 0x0ff6 #display resolution Y
 .set VRAM, 0x0ff8 # head address of video memory
+.set VBEMODE, 0x105 #画面モード 1024 x 768 - 8bit
 
-    # set video mode
-    movw $0x101, %bx # vbe 640 x 480 x 8bit-color
+    #VBE(VESA BIOS extension)の情報の格納先 ES:DIから512byteに格納される
+    movw $0x9000, %ax
+    movw %ax, %es
+    movw $0x0000, %di
+
+    #AXに0x4f00を入れて割り込み
+    #VBEが使える場合は、AXが0x004になる
+    movw $0x4f00, %ax
+    int $0x10
+    cmpw $0x004f, %ax
+    jne scrn320
+
+    #VBEのバージョンチェック(2.0以上であること)
+    movw %es: 4(%di), %ax
+    cmpw $0x200, %ax
+    jb scrn320
+
+    #画面モードの情報取得
+    #AXに0x4f01を入れて割り込み
+    #VESAのサポートがあればALが0x4fになる、それ以外は非サポート
+    #画面モード情報はES:DIから256byteに格納される
+    movw $VBEMODE, %cx
+    movw $0x4f01, %ax
+    int $0x10
+    cmpw $0x004f, %ax
+    jne scrn320
+
+    #画面モードで大事なところ
+    #WORD [ES:DI + 0x00] モードの属性、bit7が1であること
+    #WORD [ES:DI + 0x12] Xの解像度
+    #WORD [ES:DI + 0x14] Yの解像度
+    #BYTE [ES:DI + 0x19] 色数、8であること
+    #BYTE [ES:DI + 0x1b] 色の指定方法、4はパレット
+    #DWORD [ES:DI + 0x28] VRAMの番地
+    #モードの属性で、bit7が1であってほしい理由がわからない
+
+    cmpb $8, %es: 0x19(%di) #色数
+    jne scrn320
+    cmpb $4, %es: 0x1b(%di) #色の指定方法
+    jne scrn320
+    movw %es: 0x00(%di), %ax
+    andw $0x0080, %ax #モードの属性
+    jz scrn320
+
+    #チェックが通ったので、設定する
+    #画面モードに0x4000を足すのは、リニアアクセスモードとかいうやつを使いたいから？
+    #VBE 2.0以上じゃないと使えないらしい
+    movw $VBEMODE + 0x4000, %bx
     movw $0x4f02, %ax
+    int $0x10
+    movb $8, (VMODE)
+    movw %es: 0x12(%di), %ax
+    movw %ax, (SCRNX)
+    movw %es: 0x14(%di), %ax
+    movw %ax, (SCRNY)
+    movl %es: 0x28(%di), %eax
+    movl %eax, (VRAM)
+    jmp keystatus
+
+#だめだったときは320x200の画面を使う
+scrn320:
+    # set video mode
+    movb $0x13, %al # 320 x 200 x 8bit-color
+    movb $0x00, %ah
     int $0x10
 
     # save screen information
     movb $8, (VMODE)
-    movw $640, (SCRNX)
-    movw $480, (SCRNY)
-    movl $0xfd000000, (VRAM)
-    #本では0xe0000000をVRAMにしているが、何故かそれだと真っ暗になって動かなかった
+    movw $320, (SCRNX)
+    movw $200, (SCRNY)
+    movl $0x000a0000, (VRAM)
 
+keystatus:
     # get keyboard led status from BIOS
     movb $0x02, %ah
     int $0x16
