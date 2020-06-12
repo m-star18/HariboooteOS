@@ -172,6 +172,10 @@ void HariMain(void) {
 
                     //移動後の描画
                     sheet_slide(sht_mouse, mx, my);
+
+                    //左クリックした位置にウインドウを移動する
+                    if ((mdec.btn & 0x01) != 0)
+                        sheet_slide(sht_win, mx - 80, my - 8);
                 }
             }
             //タイマ
