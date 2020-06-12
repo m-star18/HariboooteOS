@@ -107,7 +107,7 @@ void HariMain(void) {
         count++;
         io_cli();
         if (fifo32_status(&fifo) == 0) {
-            io_sti();
+            io_stihlt();
         } else {
             i = fifo32_get(&fifo);
             io_sti();
@@ -116,6 +116,8 @@ void HariMain(void) {
             if (i >= 256 && i <= 511) {
                 _sprintf(str, "%02X", i - 256);
                 putfonts8_asc_sht(sht_back, 0, 16, COL8_FFFFFF, COL8_008484, str, 2);
+                if (i == 0x1e + 256)
+                    putfonts8_asc_sht(sht_win, 49, 28, COL8_000000, COL8_C6C6C6, "A", 1);
             }
             //マウス
             else if (i >= 512 && i <= 767) {
