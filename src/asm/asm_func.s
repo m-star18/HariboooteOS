@@ -7,6 +7,7 @@
 .global io_out8, io_out16, io_out32
 .global io_load_eflags, io_store_eflags
 .global load_gdtr, load_idtr
+.global load_tr, taskswitch4
 .global load_cr0, store_cr0
 .global asm_inthandler21, asm_inthandler2c, asm_inthandler27, asm_inthandler20
 .global memtest_sub
@@ -100,6 +101,16 @@ load_idtr:
     movw 4(%esp), %ax #limit
     movw %ax, 6(%esp)
     lidt 6(%esp)
+    ret
+
+#void load_tr(int tr)
+load_tr:
+    ltr 4(%esp)
+    ret
+
+#void taskswitch4(void)
+taskswitch4:
+    ljmpl $4 * 8, $0
     ret
 
 #int io_load_cr0(void)

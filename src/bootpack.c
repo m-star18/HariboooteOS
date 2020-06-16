@@ -16,6 +16,8 @@ void HariMain(void) {
     struct MOUSE_DEC mdec;
     struct MEMMAN *memman = (struct MEMMAN *) MEMMAN_ADDR;
 
+    struct SEGMENT_DESCRIPTOR *gdt = (struct SEGMENT_DESCRIPTOR *) ADR_GDT;
+
     struct SHTCTL *shtctl;
     struct SHEET *sht_back;
     struct SHEET *sht_mouse;
@@ -38,6 +40,11 @@ void HariMain(void) {
         0, 0, 0, 0, 0, 0, 0, '7', '8', '9', '-', '4', '5', '6', '+', '1',
         '2', '3', '0', '.'
     };
+
+    struct TSS32 tss_a;
+    struct TSS32 tss_b;
+
+    int task_b_esp;
 
     fifo32_init(&fifo, 128, fifobuf);
 
@@ -114,6 +121,34 @@ void HariMain(void) {
     timer_init(timer3, &fifo, 1);
     timer_settime(timer3, 50);
 
+    tss_a.ldtr = 0;
+    tss_a.iomap = 0x40000000;
+    tss_b.ldtr = 0;
+    tss_b.iomap = 0x40000000;
+
+    set_segmdesc(gdt + 3, 103, (int) &tss_a, AR_TSS32);
+    set_segmdesc(gdt + 4, 103, (int) &tss_b, AR_TSS32);
+
+    load_tr(3 * 8);
+
+    task_b_esp = memman_alloc_4k(memman, 64 * 1024) + 64 * 1023;
+    tss_b.eip = (int)&task_b_main;
+    tss_b.eflags = 0x00000202; //IF = 1
+    tss_b.eax = 0;
+    tss_b.ecx = 0;
+    tss_b.edx = 0;
+    tss_b.ebx = 0;
+    tss_b.esp = task_b_esp;
+    tss_b.ebp = 0;
+    tss_b.esi = 0;
+    tss_b.edi = 0;
+    tss_b.es = 1 * 8;
+    tss_b.cs = 2 * 8;
+    tss_b.ss = 1 * 8;
+    tss_b.ds = 1 * 8;
+    tss_b.fs = 1 * 8;
+    tss_b.gs = 1 * 8;
+
     for(;;) {
         io_cli();
         if (fifo32_status(&fifo) == 0) {
@@ -179,9 +214,10 @@ void HariMain(void) {
                 }
             }
             //タイマ
-            else if (i == 10)
+            else if (i == 10) {
                 putfonts8_asc_sht(sht_back, 0, 64, COL8_FFFFFF, COL8_008484, "10[sec]", 7);
-            else if (i == 3)
+                taskswitch4();
+            } else if (i == 3)
                 putfonts8_asc_sht(sht_back, 0, 80, COL8_FFFFFF, COL8_008484, "3[sec]", 6);
             if (i <= 1) {
                 if (i != 0) {
@@ -265,4 +301,9 @@ void make_textbox8(struct SHEET *sht, int x0, int y0, int sx, int sy, int c) {
     boxfill8(sht->buf, sht->bxsize, COL8_C6C6C6, x0 - 2, y1 + 1, x1 + 0, y1 + 1);
     boxfill8(sht->buf, sht->bxsize, COL8_C6C6C6, x1 + 1, y0 - 2, x1 + 1, y1 + 1);
     boxfill8(sht->buf, sht->bxsize, c, x0 - 1, y0 - 1, x1 + 0, y1 + 0);
+}
+
+void task_b_main(void) {
+    for (;;)
+        io_hlt();
 }
