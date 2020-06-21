@@ -32,6 +32,8 @@ void HariMain(void) {
     struct TIMER *timer2;
     struct TIMER *timer3;
 
+    struct TIMER *timer_ts;
+
     static char keytable[] = {
         0, 0, '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '^', 0, 0,
         'Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', '@', '[', 0, 0, 'A', 'S',
@@ -121,6 +123,10 @@ void HariMain(void) {
     timer_init(timer3, &fifo, 1);
     timer_settime(timer3, 50);
 
+    timer_ts = timer_alloc();
+    timer_init(timer_ts, &fifo, 2);
+    timer_settime(timer_ts, 2);
+
     tss_a.ldtr = 0;
     tss_a.iomap = 0x40000000;
     tss_b.ldtr = 0;
@@ -132,7 +138,7 @@ void HariMain(void) {
     load_tr(3 * 8);
 
     task_b_esp = memman_alloc_4k(memman, 64 * 1024) + 64 * 1023;
-    tss_b.eip = (int)&task_b_main;
+    tss_b.eip = (int) &task_b_main;
     tss_b.eflags = 0x00000202; //IF = 1
     tss_b.eax = 0;
     tss_b.ecx = 0;
@@ -156,7 +162,10 @@ void HariMain(void) {
         } else {
             i = fifo32_get(&fifo);
             io_sti();
-
+            if (i == 2) {
+                farjmp(0, 4 * 8);
+                timer_settime(timer_ts, 2);
+            }
             //キーボード
             if (i >= 256 && i <= 511) {
                 _sprintf(str, "%02X", i - 256);
@@ -214,10 +223,9 @@ void HariMain(void) {
                 }
             }
             //タイマ
-            else if (i == 10) {
+            else if (i == 10)
                 putfonts8_asc_sht(sht_back, 0, 64, COL8_FFFFFF, COL8_008484, "10[sec]", 7);
-                taskswitch4();
-            } else if (i == 3)
+            else if (i == 3)
                 putfonts8_asc_sht(sht_back, 0, 80, COL8_FFFFFF, COL8_008484, "3[sec]", 6);
             if (i <= 1) {
                 if (i != 0) {
@@ -305,14 +313,14 @@ void make_textbox8(struct SHEET *sht, int x0, int y0, int sx, int sy, int c) {
 
 void task_b_main(void) {
     struct FIFO32 fifo;
-    struct TIMER *timer;
+    struct TIMER *timer_ts;
     int i;
     int fifobuf[128];
 
     fifo32_init(&fifo, 128, fifobuf);
-    timer = timer_alloc();
-    timer_init(timer, &fifo, 1);
-    timer_settime(timer, 500);
+    timer_ts = timer_alloc();
+    timer_init(timer_ts, &fifo, 1);
+    timer_settime(timer_ts, 2);
 
     for (;;) {
         io_cli();
@@ -321,8 +329,10 @@ void task_b_main(void) {
         else {
             i = fifo32_get(&fifo);
             io_sti();
-            if(i == 1)
-                taskswitch3();
+            if(i == 1) {
+                farjmp(0, 3 * 8);
+                timer_settime(timer_ts, 2);
+            }
         }
     }
 }

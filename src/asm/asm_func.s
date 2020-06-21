@@ -8,7 +8,7 @@
 .global io_load_eflags, io_store_eflags
 .global load_gdtr, load_idtr
 .global load_tr
-.global taskswitch4, taskswitch3
+.global farjmp
 .global load_cr0, store_cr0
 .global asm_inthandler21, asm_inthandler2c, asm_inthandler27, asm_inthandler20
 .global memtest_sub
@@ -109,14 +109,9 @@ load_tr:
     ltr 4(%esp)
     ret
 
-#void taskswitch4(void)
-taskswitch4:
-    ljmpl $4 * 8, $0
-    ret
-
-#void taskswitch3(void)
-taskswitch3:
-    ljmpl $3 * 8, $0
+#void farjmp(int eip, int cs)
+farjmp:
+    ljmp *4(%esp)
     ret
 
 #int io_load_cr0(void)

@@ -67,7 +67,7 @@ void asm_inthandler20(void);
 int load_cr0(void);
 void store_cr0(int cr0);
 void load_tr(int tr);
-void taskswitch4(void);
+void farjmp(int eip, int cs);
 
 //dsctbl.c
 #define ADR_IDT 0x0026f800
