@@ -7,7 +7,7 @@ INCLUDE = -I include -I tools/stdlibc/include
 LD = ld
 LFLAGS = -m elf_i386
 
-QEMU = qemu-system-x86_64
+QEMU = qemu-system-i386
 
 TARGET_DIR = bin
 LST_DIR = $(TARGET_DIR)/lst

@@ -212,7 +212,7 @@ GDT0:
     .word 0x0000
 
 GDTR0:
-    .word 8*3-1
+    .word 8 * 3 - 1
     .long GDT0
 
 bootpack:

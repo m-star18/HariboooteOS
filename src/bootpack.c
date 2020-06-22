@@ -158,6 +158,8 @@ void HariMain(void) {
     tss_b.fs = 1 * 8;
     tss_b.gs = 1 * 8;
 
+    mt_init();
+
     for (;;) {
         io_cli();
         if (fifo32_status(&fifo) == 0)
@@ -165,10 +167,7 @@ void HariMain(void) {
         else {
             i = fifo32_get(&fifo);
             io_sti();
-            if (i == 2) {
-                farjmp(0, 4 * 8);
-                timer_settime(timer_ts, 2);
-            }
+
             //キーボード
             if (i >= 256 && i <= 511) {
                 _sprintf(str, "%02X", i - 256);
@@ -316,19 +315,15 @@ void make_textbox8(struct SHEET *sht, int x0, int y0, int sx, int sy, int c) {
 
 void task_b_main(struct SHEET *sht_back) {
     struct FIFO32 fifo;
-    struct TIMER *timer_ts;
     struct TIMER *timer_put;
     struct TIMER *timer_1s;
     int i;
     int fifobuf[128];
-    int count = 0;
+    int count;
     int count0 = 0;
     char s[256];
 
     fifo32_init(&fifo, 128, fifobuf);
-    timer_ts = timer_alloc();
-    timer_init(timer_ts, &fifo, 2);
-    timer_settime(timer_ts, 2);
 
     timer_put = timer_alloc();
     timer_init(timer_put, &fifo, 1);
@@ -348,10 +343,7 @@ void task_b_main(struct SHEET *sht_back) {
             io_sti();
             if (i == 1)
                 timer_settime(timer_put, 1);
-            else if (i == 2) {
-                farjmp(0, 3 * 8);
-                timer_settime(timer_ts, 2);
-            } else if (i == 100) {
+            else if (i == 100) {
                 _sprintf(s, "%11d", count - count0);
                 putfonts8_asc_sht(sht_back, 0, 128, COL8_FFFFFF, COL8_008484, s, 11);
                 count0 = count;
