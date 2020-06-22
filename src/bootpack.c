@@ -80,8 +80,6 @@ void HariMain(void) {
     sht_mouse = sheet_alloc(shtctl);
     sht_win = sheet_alloc(shtctl);
 
-    *((int *) 0x0fec) = (int) sht_back;
-
     buf_back = (unsigned char *)memman_alloc_4k(memman, binfo->scrnx * binfo->scrny);
     buf_win = (unsigned char *)memman_alloc_4k(memman, 160 * 52);
     sheet_setbuf(sht_back, buf_back, binfo->scrnx, binfo->scrny, -1); //透明色なし
@@ -129,15 +127,18 @@ void HariMain(void) {
     timer_init(timer_ts, &fifo, 2);
     timer_settime(timer_ts, 2);
 
+    set_segmdesc(gdt + 3, 103, (int) &tss_a, AR_TSS32);
+    set_segmdesc(gdt + 4, 103, (int) &tss_b, AR_TSS32);
+
     tss_a.ldtr = 0;
     tss_a.iomap = 0x40000000;
     tss_b.ldtr = 0;
     tss_b.iomap = 0x40000000;
 
-    set_segmdesc(gdt + 3, 103, (int) &tss_a, AR_TSS32);
-    set_segmdesc(gdt + 4, 103, (int) &tss_b, AR_TSS32);
-
     load_tr(3 * 8);
+
+    task_b_esp = memman_alloc_4k(memman, 64 * 1024) + 64 * 1024 - 8;
+    *((int *) (task_b_esp + 4)) = (int) sht_back;
 
     task_b_esp = memman_alloc_4k(memman, 64 * 1024) + 64 * 1023;
     tss_b.eip = (int) &task_b_main;
@@ -157,11 +158,11 @@ void HariMain(void) {
     tss_b.fs = 1 * 8;
     tss_b.gs = 1 * 8;
 
-    for(;;) {
+    for (;;) {
         io_cli();
-        if (fifo32_status(&fifo) == 0) {
+        if (fifo32_status(&fifo) == 0)
             io_stihlt();
-        } else {
+        else {
             i = fifo32_get(&fifo);
             io_sti();
             if (i == 2) {
@@ -313,32 +314,38 @@ void make_textbox8(struct SHEET *sht, int x0, int y0, int sx, int sy, int c) {
     boxfill8(sht->buf, sht->bxsize, c, x0 - 1, y0 - 1, x1 + 0, y1 + 0);
 }
 
-void task_b_main(void) {
+void task_b_main(struct SHEET *sht_back) {
     struct FIFO32 fifo;
     struct TIMER *timer_ts;
+    struct TIMER *timer_put;
     int i;
     int fifobuf[128];
-    int count;
-    char s[11];
-    struct SHEET *sht_back = (struct SHEET *) *((int *)0x0fec);
+    int count = 0;
+    char s[256];
 
     fifo32_init(&fifo, 128, fifobuf);
     timer_ts = timer_alloc();
-    timer_init(timer_ts, &fifo, 1);
+    timer_init(timer_ts, &fifo, 2);
     timer_settime(timer_ts, 2);
+
+    timer_put = timer_alloc();
+    timer_init(timer_put, &fifo, 1);
+    timer_settime(timer_put, 1);
 
     for (;;) {
         count++;
-        _sprintf(s, "%10d", count);
-        putfonts8_asc_sht(sht_back, 0, 144, COL8_FFFFFF, COL8_008484, s, 10);
-
         io_cli();
+
         if (fifo32_status(&fifo) == 0)
-            io_stihlt();
+            io_sti();
         else {
             i = fifo32_get(&fifo);
             io_sti();
-            if(i == 1) {
+            if (i == 1) {
+                _sprintf(s, "%11d", count);
+                putfonts8_asc_sht(sht_back, 0, 144, COL8_FFFFFF, COL8_008484, s, 11);
+                timer_settime(timer_put, 1);
+            } else if (i == 2) {
                 farjmp(0, 3 * 8);
                 timer_settime(timer_ts, 2);
             }
