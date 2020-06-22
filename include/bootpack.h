@@ -66,6 +66,8 @@ void asm_inthandler27(void);
 void asm_inthandler20(void);
 int load_cr0(void);
 void store_cr0(int cr0);
+void load_tr(int tr);
+void farjmp(int eip, int cs);
 
 //dsctbl.c
 #define ADR_IDT 0x0026f800
@@ -88,6 +90,7 @@ void store_cr0(int cr0);
 #define AR_DATA32_RW  0x4092
 #define AR_CODE32_ER  0x409a
 #define AR_INTGATE32  0x008e
+#define AR_TSS32 0x0089
 
 struct SEGMENT_DESCRIPTOR {
     short limit_low, base_low;
@@ -278,7 +281,7 @@ extern struct TIMERCTL timerctl;
 void init_pit(void);
 struct TIMER *timer_alloc(void);
 void timer_free(struct TIMER *timer);
-void timer_init(struct TIMER *timer, struct FIFO32 *fifo, unsigned char data);
+void timer_init(struct TIMER *timer, struct FIFO32 *fifo, int data);
 void timer_settime(struct TIMER *timer, unsigned int timeout);
 void inthandler20(int *esp);
 
@@ -286,5 +289,21 @@ void inthandler20(int *esp);
 void make_window8(unsigned char *buf, int xsize, int ysize, char *title);
 void make_textbox8(struct SHEET *sht, int x0, int y0, int sx, int sy, int c);
 void putfonts8_asc_sht(struct SHEET *sht, int x, int y, int c, int b, char *s, int l);
+void task_b_main(struct SHEET *sht_back);
+
+//task state segment
+struct TSS32 {
+    int backlink, esp0, ss0, esp1, ss1, esp2, ss2, cr3;
+    int eip, eflags, eax, ecx, edx, ebx, esp, ebp, esi, edi;
+    int es, cs, ss, ds, fs, gs;
+    int ldtr, iomap;
+};
+
+//mtask.c
+extern struct TIMER *mt_timer;
+extern int mt_tr;
+
+void mt_init(void);
+void mt_taskswitch(void);
 
 #endif

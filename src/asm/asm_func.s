@@ -7,6 +7,8 @@
 .global io_out8, io_out16, io_out32
 .global io_load_eflags, io_store_eflags
 .global load_gdtr, load_idtr
+.global load_tr
+.global farjmp
 .global load_cr0, store_cr0
 .global asm_inthandler21, asm_inthandler2c, asm_inthandler27, asm_inthandler20
 .global memtest_sub
@@ -100,6 +102,16 @@ load_idtr:
     movw 4(%esp), %ax #limit
     movw %ax, 6(%esp)
     lidt 6(%esp)
+    ret
+
+#void load_tr(int tr)
+load_tr:
+    ltr 4(%esp)
+    ret
+
+#void farjmp(int eip, int cs)
+farjmp:
+    ljmp *4(%esp)
     ret
 
 #int io_load_cr0(void)
@@ -210,6 +222,7 @@ mts_loop:
     pop %esi
     pop %edi
     ret
+
 mts_fin:
     movl %edx, (%ebx) #*p = old
     pop %ebx

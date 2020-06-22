@@ -38,7 +38,7 @@ void timer_free(struct TIMER *timer) {
     timer->flags = 0;
 }
 
-void timer_init(struct TIMER *timer, struct FIFO32 *fifo, unsigned char data) {
+void timer_init(struct TIMER *timer, struct FIFO32 *fifo, int data) {
     timer->fifo = fifo;
     timer->data = data;
 }
@@ -54,7 +54,7 @@ void timer_settime(struct TIMER *timer, unsigned int timeout) {
     e = io_load_eflags();
     io_cli();
 
-     //先頭
+    //先頭
     t = timerctl.t0;
     if (timer->timeout <= t->timeout) {
         timerctl.t0 = timer;
@@ -85,6 +85,7 @@ void timer_settime(struct TIMER *timer, unsigned int timeout) {
 void inthandler20(int *esp) {
     int i, j;
     struct TIMER *timer;
+    char ts = 0;
 
     //割り込み受付を通知
     io_out8(PIC0_OCW2, 0x60);
@@ -99,11 +100,16 @@ void inthandler20(int *esp) {
 
         //timeout
         timer->flags = TIMER_FLAGS_ALLOC;
-        fifo32_put(timer->fifo, timer->data);
+        if (timer != mt_timer)
+            fifo32_put(timer->fifo, timer->data);
+        else
+            ts = 1;
         timer = timer->next;
     }
 
     //リスト先頭を更新
     timerctl.t0 = timer;
     timerctl.next = timerctl.t0->timeout;
+    if (ts != 0)
+        mt_taskswitch();
 }
