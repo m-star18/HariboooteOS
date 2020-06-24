@@ -131,7 +131,7 @@ void load_idtr(int limit, int addr);
 #define COL8_848484 15
 
 void init_palette(void);
-void init_screen(char *vram, int xsize, int ysize);
+void init_screen8(char *vram, int xsize, int ysize);
 void set_palette(int start, int end, unsigned char *rgb);
 void putfonts8_asc(char *vram, int xsize, int x, int y, char c, unsigned char *s);
 void putfont8(char *vram, int xsize, int x, int y, char c, char *font);
@@ -172,9 +172,9 @@ void inthandler27(int *esp);
 //fifo.c
 #define FLAGS_OVERRUN 0x0001
 
-struct FIFO8{
+struct FIFO8 {
     unsigned char *buf;
-    int p, q; //write, read
+    int p, q; //write read
     int size;
     int free;
     int flags; //overrun
@@ -185,15 +185,16 @@ int fifo8_put(struct FIFO8 *fifo, unsigned char data);
 int fifo8_get(struct FIFO8 *fifo);
 int fifo8_status(struct FIFO8 *fifo);
 
-struct FIFO32{
+struct FIFO32 {
     int *buf;
-    int p, q; //write, read
+    int p, q; //write read
     int size;
     int free;
     int flags; //overrun
+    struct TASK *task;
 };
 
-void fifo32_init(struct FIFO32 *fifo, int size, int *buf);
+void fifo32_init(struct FIFO32 *fifo, int size, int *buf, struct TASK *task);
 int fifo32_put(struct FIFO32 *fifo, int data);
 int fifo32_get(struct FIFO32 *fifo);
 int fifo32_status(struct FIFO32 *fifo);
@@ -249,9 +250,6 @@ void sheet_free(struct SHEET *sht);
 void sheet_refreshsub(struct SHTCTL *ctl, int vx0, int vy0, int vx1, int vy1, int h0, int h1);
 void sheet_refreshmap(struct SHTCTL *ctl, int vx0, int vy0, int vx1, int vy1, int h0);
 
-//window
-void make_window8(unsigned char *buf, int xsize, int ysize, char *title);
-
 //timer.c
 #define PIT_CTRL 0x0043
 #define PIT_CNT0 0x0040
@@ -286,10 +284,17 @@ void timer_settime(struct TIMER *timer, unsigned int timeout);
 void inthandler20(int *esp);
 
 //bootpack.c
-void make_window8(unsigned char *buf, int xsize, int ysize, char *title);
+void make_window8(unsigned char *buf, int xsize, int ysize, char *title, char act);
 void make_textbox8(struct SHEET *sht, int x0, int y0, int sx, int sy, int c);
 void putfonts8_asc_sht(struct SHEET *sht, int x, int y, int c, int b, char *s, int l);
 void task_b_main(struct SHEET *sht_back);
+
+//mtask.c
+#define MAX_TASKS 1000 //最大タスク数
+#define TASK_GDT0 3 //タスクに割り当てるGDTの最初の位置
+
+#define MAX_TASKS_LV 100
+#define MAX_TASKLEVELS 10
 
 //task state segment
 struct TSS32 {
@@ -299,11 +304,38 @@ struct TSS32 {
     int ldtr, iomap;
 };
 
-//mtask.c
-extern struct TIMER *mt_timer;
-extern int mt_tr;
+struct TASK {
+    int sel; //GDT番号
+    int flags;
+    int level;
+    int priority;
+    struct TSS32 tss;
+};
 
-void mt_init(void);
-void mt_taskswitch(void);
+struct TASKLEVEL {
+    int running; //動作中のタスクの数
+    int now; //実行中のタスク
+    struct TASK *tasks[MAX_TASKS_LV];
+};
+
+struct TASKCTL {
+    int now_lv; //動作中のレベル
+    int lv_change; //次回のタスクスイッチでレベルも変えるか
+    struct TASKLEVEL level[MAX_TASKLEVELS];
+    struct TASK tasks0[MAX_TASKS];
+};
+
+extern struct TASKCTL *taskctl;
+extern struct TIMER *task_timer;
+
+struct TASK *task_init(struct MEMMAN *memman);
+struct TASK *task_alloc(void);
+void task_add(struct TASK *task);
+void task_remove(struct TASK *task);
+void task_run(struct TASK *task, int level, int priority);
+void task_switch(void);
+void task_sleep(struct TASK *task);
+struct TASK *task_now(void);
+void task_switchsub(void);
 
 #endif

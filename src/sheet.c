@@ -102,16 +102,14 @@ void sheet_updown(struct SHEET *sht, int height) {
                 ctl->sheets[h]->height = h;
             }
             ctl->sheets[height] = sht;
-        }
 
         //非表示から表示状態へ
-        else {
+        } else {
             //移動先を開けるために、topと挿入位置の間にあるシートを引き上げる
             for (h = ctl->top; h >= height; h--) {
                 ctl->sheets[h + 1] = ctl->sheets[h];
                 ctl->sheets[h + 1]->height = h + 1;
             }
-
             ctl->sheets[height] = sht;
             ctl->top++;
         }

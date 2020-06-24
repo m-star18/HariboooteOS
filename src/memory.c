@@ -120,7 +120,7 @@ int memman_free(struct MEMMAN *man, unsigned int addr, unsigned int size) {
 
                 //後ろもまとめられる
                 if (addr + size == man->free[i].addr) {
-                    man->free[i-1].size += man->free[i].size;
+                    man->free[i - 1].size += man->free[i].size;
 
                     //後ろをまとめてfree[i]が空いたのでつめる
                     man->frees--;
