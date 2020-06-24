@@ -32,8 +32,6 @@ void HariMain(void) {
     struct TIMER *timer2;
     struct TIMER *timer3;
 
-    struct TIMER *timer_ts;
-
     static char keytable[] = {
         0, 0, '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '^', 0, 0,
         'Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', '@', '[', 0, 0, 'A', 'S',
@@ -43,10 +41,7 @@ void HariMain(void) {
         '2', '3', '0', '.'
     };
 
-    struct TSS32 tss_a;
-    struct TSS32 tss_b;
-
-    int task_b_esp;
+    struct TASK *task_b;
 
     fifo32_init(&fifo, 128, fifobuf);
 
@@ -123,42 +118,20 @@ void HariMain(void) {
     timer_init(timer3, &fifo, 1);
     timer_settime(timer3, 50);
 
-    timer_ts = timer_alloc();
-    timer_init(timer_ts, &fifo, 2);
-    timer_settime(timer_ts, 2);
+    task_init(memman);
+    task_b = task_alloc();
 
-    set_segmdesc(gdt + 3, 103, (int) &tss_a, AR_TSS32);
-    set_segmdesc(gdt + 4, 103, (int) &tss_b, AR_TSS32);
+    task_b->tss.esp = memman_alloc_4k(memman, 64 * 1024) + 64 * 1024 - 8;
+    task_b->tss.eip = (int) & task_b_main;
+    task_b->tss.es = 1 * 8;
+    task_b->tss.cs = 2 * 8;
+    task_b->tss.ss = 1 * 8;
+    task_b->tss.ds = 1 * 8;
+    task_b->tss.fs = 1 * 8;
+    task_b->tss.gs = 1 * 8;
+    *((int *) (task_b->tss.esp + 4)) = (int) sht_back;
 
-    tss_a.ldtr = 0;
-    tss_a.iomap = 0x40000000;
-    tss_b.ldtr = 0;
-    tss_b.iomap = 0x40000000;
-
-    load_tr(3 * 8);
-
-    task_b_esp = memman_alloc_4k(memman, 64 * 1024) + 64 * 1024 - 8;
-    *((int *) (task_b_esp + 4)) = (int) sht_back;
-
-    task_b_esp = memman_alloc_4k(memman, 64 * 1024) + 64 * 1023;
-    tss_b.eip = (int) &task_b_main;
-    tss_b.eflags = 0x00000202; //IF = 1
-    tss_b.eax = 0;
-    tss_b.ecx = 0;
-    tss_b.edx = 0;
-    tss_b.ebx = 0;
-    tss_b.esp = task_b_esp;
-    tss_b.ebp = 0;
-    tss_b.esi = 0;
-    tss_b.edi = 0;
-    tss_b.es = 1 * 8;
-    tss_b.cs = 2 * 8;
-    tss_b.ss = 1 * 8;
-    tss_b.ds = 1 * 8;
-    tss_b.fs = 1 * 8;
-    tss_b.gs = 1 * 8;
-
-    mt_init();
+    task_run(task_b);
 
     for (;;) {
         io_cli();

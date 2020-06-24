@@ -291,6 +291,10 @@ void make_textbox8(struct SHEET *sht, int x0, int y0, int sx, int sy, int c);
 void putfonts8_asc_sht(struct SHEET *sht, int x, int y, int c, int b, char *s, int l);
 void task_b_main(struct SHEET *sht_back);
 
+//mtask.c
+#define MAX_TASKS 1000 //最大タスク数
+#define TASK_GDT0 3 //タスクに割り当てるGDTの最初の位置
+
 //task state segment
 struct TSS32 {
     int backlink, esp0, ss0, esp1, ss1, esp2, ss2, cr3;
@@ -299,11 +303,25 @@ struct TSS32 {
     int ldtr, iomap;
 };
 
-//mtask.c
-extern struct TIMER *mt_timer;
-extern int mt_tr;
+struct TASK {
+    int sel; //GDT番号
+    int flags;
+    struct TSS32 tss;
+};
 
-void mt_init(void);
-void mt_taskswitch(void);
+struct TASKCTL {
+    int running; //動作中のタスクの数
+    int now; //実行中のタスク
+    struct TASK *tasks[MAX_TASKS];
+    struct TASK tasks0[MAX_TASKS];
+};
+
+extern struct TASKCTL *taskctl;
+extern struct TIMER *task_timer;
+
+struct TASK *task_init(struct MEMMAN *memman);
+struct TASK *task_alloc(void);
+void task_run(struct TASK *task);
+void task_switch(void);
 
 #endif
