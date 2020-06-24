@@ -41,9 +41,10 @@ void HariMain(void) {
         '2', '3', '0', '.'
     };
 
+    struct TASK *task_a;
     struct TASK *task_b;
 
-    fifo32_init(&fifo, 128, fifobuf);
+    fifo32_init(&fifo, 128, fifobuf, 0);
 
     //GDT, IDTを初期化
     init_gdtidt();
@@ -118,9 +119,10 @@ void HariMain(void) {
     timer_init(timer3, &fifo, 1);
     timer_settime(timer3, 50);
 
-    task_init(memman);
-    task_b = task_alloc();
+    task_a = task_init(memman);
+    fifo.task = task_a;
 
+    task_b = task_alloc();
     task_b->tss.esp = memman_alloc_4k(memman, 64 * 1024) + 64 * 1024 - 8;
     task_b->tss.eip = (int) & task_b_main;
     task_b->tss.es = 1 * 8;
@@ -135,9 +137,10 @@ void HariMain(void) {
 
     for (;;) {
         io_cli();
-        if (fifo32_status(&fifo) == 0)
-            io_stihlt();
-        else {
+        if (fifo32_status(&fifo) == 0) {
+            task_sleep(task_a);
+            io_sti();
+        } else {
             i = fifo32_get(&fifo);
             io_sti();
 
@@ -296,7 +299,7 @@ void task_b_main(struct SHEET *sht_back) {
     int count0 = 0;
     char s[256];
 
-    fifo32_init(&fifo, 128, fifobuf);
+    fifo32_init(&fifo, 128, fifobuf, 0);
 
     timer_put = timer_alloc();
     timer_init(timer_put, &fifo, 1);
@@ -314,9 +317,7 @@ void task_b_main(struct SHEET *sht_back) {
         else {
             i = fifo32_get(&fifo);
             io_sti();
-            if (i == 1)
-                timer_settime(timer_put, 1);
-            else if (i == 100) {
+            if (i == 100) {
                 _sprintf(s, "%11d", count - count0);
                 putfonts8_asc_sht(sht_back, 0, 128, COL8_FFFFFF, COL8_008484, s, 11);
                 count0 = count;
