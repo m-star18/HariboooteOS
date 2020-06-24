@@ -293,6 +293,9 @@ void task_b_main(struct SHEET *sht_back);
 #define MAX_TASKS 1000 //最大タスク数
 #define TASK_GDT0 3 //タスクに割り当てるGDTの最初の位置
 
+#define MAX_TASKS_LV 100
+#define MAX_TASKLEVELS 10
+
 //task state segment
 struct TSS32 {
     int backlink, esp0, ss0, esp1, ss1, esp2, ss2, cr3;
@@ -304,14 +307,21 @@ struct TSS32 {
 struct TASK {
     int sel; //GDT番号
     int flags;
+    int level;
     int priority;
     struct TSS32 tss;
 };
 
-struct TASKCTL {
+struct TASKLEVEL {
     int running; //動作中のタスクの数
     int now; //実行中のタスク
-    struct TASK *tasks[MAX_TASKS];
+    struct TASK *tasks[MAX_TASKS_LV];
+};
+
+struct TASKCTL {
+    int now_lv; //動作中のレベル
+    int lv_change; //次回のタスクスイッチでレベルも変えるか
+    struct TASKLEVEL level[MAX_TASKLEVELS];
     struct TASK tasks0[MAX_TASKS];
 };
 
@@ -320,8 +330,12 @@ extern struct TIMER *task_timer;
 
 struct TASK *task_init(struct MEMMAN *memman);
 struct TASK *task_alloc(void);
-void task_run(struct TASK *task, int priority);
+void task_add(struct TASK *task);
+void task_remove(struct TASK *task);
+void task_run(struct TASK *task, int level, int priority);
 void task_switch(void);
 void task_sleep(struct TASK *task);
+struct TASK *task_now(void);
+void task_switchsub(void);
 
 #endif
