@@ -79,7 +79,7 @@ void task_sleep(struct TASK *task) {
     if (task->flags == 2) {
         if (task == taskctl->tasks[taskctl->now]) {
             //自分自身を寝かせる場合
-            //処理が終わったあとに寝かせる必要があるのでフラグ立て
+            //処理が終わったあとにタスクスイッチする必要があるのでフラグ立て
             ts = 1;
         }
         for (i = 0; i < taskctl->running; i++) {
@@ -94,10 +94,9 @@ void task_sleep(struct TASK *task) {
             taskctl->now--;
         }
 
-        for (; i < taskctl->running; i++) {
-            //ずらす
-            taskctl->tasks[i] = taskctl->tasks[i + 1];
-        }
+        for (; i < taskctl->running; i++)
+            taskctl->tasks[i] = taskctl->tasks[i + 1]; //ずらす
+
         task->flags = 1; //動作停止中の状態
         //タスクスイッチ実行
         if (ts != 0) {

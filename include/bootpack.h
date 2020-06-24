@@ -131,7 +131,7 @@ void load_idtr(int limit, int addr);
 #define COL8_848484 15
 
 void init_palette(void);
-void init_screen(char *vram, int xsize, int ysize);
+void init_screen8(char *vram, int xsize, int ysize);
 void set_palette(int start, int end, unsigned char *rgb);
 void putfonts8_asc(char *vram, int xsize, int x, int y, char c, unsigned char *s);
 void putfont8(char *vram, int xsize, int x, int y, char c, char *font);
@@ -172,9 +172,9 @@ void inthandler27(int *esp);
 //fifo.c
 #define FLAGS_OVERRUN 0x0001
 
-struct FIFO8{
+struct FIFO8 {
     unsigned char *buf;
-    int p, q; //write, read
+    int p, q; //write read
     int size;
     int free;
     int flags; //overrun
@@ -185,9 +185,9 @@ int fifo8_put(struct FIFO8 *fifo, unsigned char data);
 int fifo8_get(struct FIFO8 *fifo);
 int fifo8_status(struct FIFO8 *fifo);
 
-struct FIFO32{
+struct FIFO32 {
     int *buf;
-    int p, q; //write, read
+    int p, q; //write read
     int size;
     int free;
     int flags; //overrun
@@ -250,9 +250,6 @@ void sheet_free(struct SHEET *sht);
 void sheet_refreshsub(struct SHTCTL *ctl, int vx0, int vy0, int vx1, int vy1, int h0, int h1);
 void sheet_refreshmap(struct SHTCTL *ctl, int vx0, int vy0, int vx1, int vy1, int h0);
 
-//window
-void make_window8(unsigned char *buf, int xsize, int ysize, char *title);
-
 //timer.c
 #define PIT_CTRL 0x0043
 #define PIT_CNT0 0x0040
@@ -287,7 +284,7 @@ void timer_settime(struct TIMER *timer, unsigned int timeout);
 void inthandler20(int *esp);
 
 //bootpack.c
-void make_window8(unsigned char *buf, int xsize, int ysize, char *title);
+void make_window8(unsigned char *buf, int xsize, int ysize, char *title, char act);
 void make_textbox8(struct SHEET *sht, int x0, int y0, int sx, int sy, int c);
 void putfonts8_asc_sht(struct SHEET *sht, int x, int y, int c, int b, char *s, int l);
 void task_b_main(struct SHEET *sht_back);
