@@ -310,6 +310,7 @@ struct TASK {
     int flags;
     int level;
     int priority;
+    struct FIFO32 fifo;
     struct TSS32 tss;
 };
 

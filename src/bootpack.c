@@ -9,7 +9,7 @@ void HariMain(void) {
     int i, j;
     unsigned int memtotal;
 
-    int key_to; //どのタスクに入力するか
+    int key_to = 0; //どのタスクに入力するか
 
     int cursor_x = 8;
     int cursor_c = COL8_FFFFFF;
@@ -107,7 +107,7 @@ void HariMain(void) {
     task_cons->tss.ds = 1 * 8;
     task_cons->tss.fs = 1 * 8;
     task_cons->tss.gs = 1 * 8;
-    *((int *) (task_cons->tss.esp + 4)) = (int) sht_cons;
+    *((int *)(task_cons->tss.esp + 4)) = (int)sht_cons;
     task_run(task_cons, 2, 2);
 
     //window
@@ -149,25 +149,31 @@ void HariMain(void) {
             io_sti();
 
             //キーボード
-            if (i >= 256 && i <= 511) {
+            if(i >= 256 && i <= 511){
                 _sprintf(str, "%02X", i - 256);
                 putfonts8_asc_sht(sht_back, 0, 16, COL8_FFFFFF, COL8_008484, str, 2);
-                if (i < 256 + 0x54) {
-                    if (keytable[i - 256] != 0 && cursor_x < 144) {
-                        str[0] = keytable[i - 256];
-                        str[1] = 0;
-                        putfonts8_asc_sht(sht_win, cursor_x, 28, COL8_000000, COL8_FFFFFF, str, 1);
-                        cursor_x += 8;
-                    }
-                }
-                if (i == 256 + 0x0e && cursor_x > 8) {
-                    putfonts8_asc_sht(sht_win, cursor_x, 28, COL8_000000, COL8_FFFFFF, " ", 1);
-                    cursor_x -= 8;
-                }
 
-                boxfill8(sht_win->buf, sht_win->bxsize, cursor_c, cursor_x, 28, cursor_x + 7, 43);
-                sheet_refresh(sht_win, cursor_x, 28, cursor_x + 8, 44);
-
+                //通常文字
+                if (i < 0x54 + 256 && keytable[i - 256] != 0) {
+                    if (key_to == 0) { //task_a
+                        if (cursor_x < 128) {
+                            str[0] = keytable[i - 256];
+                            str[1] = 0;
+                            putfonts8_asc_sht(sht_win, cursor_x, 28, COL8_000000, COL8_FFFFFF, str, 1);
+                            cursor_x += 8;
+                        }
+                    } else //task_cons
+                        fifo32_put(&task_cons->fifo, keytable[i - 256] + 256);
+                }
+                if (i == 256 + 0x0e) {
+                    if (key_to == 0) {
+                        if (cursor_x > 8) {
+                            putfonts8_asc_sht(sht_win, cursor_x, 28, COL8_000000, COL8_FFFFFF, " ", 1);
+                            cursor_x -= 8;
+                        }
+                    } else
+                        fifo32_put(&task_cons->fifo, 8 + 256);
+                }
                 if (i == 256 + 0x0f) { //TAB
                     if (key_to == 0) {
                         key_to = 1;
@@ -182,7 +188,10 @@ void HariMain(void) {
                     sheet_refresh(sht_win, 0, 0, sht_win->bxsize, 21);
                     sheet_refresh(sht_cons, 0, 0, sht_cons->bxsize, 21);
                 }
+                boxfill8(sht_win->buf, sht_win->bxsize, cursor_c, cursor_x, 28, cursor_x + 7, 43);
+                sheet_refresh(sht_win, cursor_x, 28, cursor_x + 8, 44);
             }
+
             //マウス
             else if (i >= 512 && i <= 767) {
                 if (mouse_decode(&mdec, i - 512) != 0) {
@@ -219,6 +228,7 @@ void HariMain(void) {
                         sheet_slide(sht_win, mx - 80, my - 8);
                 }
             }
+
             //タイマ
             if (i <= 1) {
                 if (i != 0) {
@@ -316,43 +326,61 @@ void make_textbox8(struct SHEET *sht, int x0, int y0, int sx, int sy, int c) {
 }
 
 void console_task(struct SHEET *sheet) {
-    struct FIFO32 fifo;
     struct TIMER *timer;
     struct TASK *task = task_now();
 
     int i;
     int fifobuf[128];
-    int cursor_x = 8;
+    int cursor_x = 16;
     int cursor_c = COL8_000000;
+    char s[16];
 
-    fifo32_init(&fifo, 128, fifobuf, task);
+    fifo32_init(&task->fifo, 128, fifobuf, task);
 
     timer = timer_alloc();
-    timer_init(timer, &fifo, 1);
+    timer_init(timer, &task->fifo, 1);
     timer_settime(timer, 50);
+
+    putfonts8_asc_sht(sheet, 8, 28, COL8_FFFFFF, COL8_000000, ">", 1);
 
     for (;;) {
         io_cli();
-        if (fifo32_status(&fifo) == 0) {
+        if (fifo32_status(&task->fifo) == 0) {
             task_sleep(task);
             io_sti();
         } else {
-            i = fifo32_get(&fifo);
+            i = fifo32_get(&task->fifo);
             io_sti();
 
             if (i <= 1) {
                 if (i != 0) {
-                    timer_init(timer, &fifo, 0);
+                    timer_init(timer, &task->fifo, 0);
                     cursor_c = COL8_FFFFFF;
                 } else {
-                    timer_init(timer, &fifo, 1);
+                    timer_init(timer, &task->fifo, 1);
                     cursor_c = COL8_000000;
                 }
-
                 timer_settime(timer, 50);
-                boxfill8(sheet->buf, sheet->bxsize, cursor_c, cursor_x, 28, cursor_x + 7, 43);
-                sheet_refresh(sheet, cursor_x, 28, cursor_x + 8, 44);
             }
+
+            //キーボード
+            if (i >= 256 && i <= 511) {
+                if (i == 8 + 256) { //backspace
+                        if (cursor_x > 16) {
+                            putfonts8_asc_sht(sheet, cursor_x, 28, COL8_FFFFFF, COL8_000000, " ", 1);
+                            cursor_x -= 8;
+                        }
+                } else {
+                    if (cursor_x < 128) {
+                        s[0] = i - 256;
+                        s[1] = 0;
+                        putfonts8_asc_sht(sheet, cursor_x, 28, COL8_FFFFFF, COL8_000000, s, 1);
+                        cursor_x += 8;
+                    }
+                }
+            }
+            boxfill8(sheet->buf, sheet->bxsize, cursor_c, cursor_x, 28, cursor_x + 7, 43);
+            sheet_refresh(sheet, cursor_x, 28, cursor_x + 8, 44);
         }
     }
 }
