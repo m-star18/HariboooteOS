@@ -10,6 +10,7 @@ void HariMain(void) {
     unsigned int memtotal;
 
     int key_to = 0; //どのタスクに入力するか
+    int key_shift = 0; //どのタスクに入力するか
 
     int cursor_x = 8;
     int cursor_c = COL8_FFFFFF;
@@ -34,13 +35,23 @@ void HariMain(void) {
 
     struct TIMER *timer;
 
-    static char keytable[] = {
+    static char keytable0[] = {
         0, 0, '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '^', 0, 0,
         'Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', '@', '[', 0, 0, 'A', 'S',
         'D', 'F', 'G', 'H', 'J', 'K', 'L', ';', ':', 0, 0, ']', 'Z', 'X', 'C', 'V',
         'B', 'N', 'M', ',', '.', '/', 0, '*', 0, ' ', 0, 0, 0, 0, 0, 0,
         0, 0, 0, 0, 0, 0, 0, '7', '8', '9', '-', '4', '5', '6', '+', '1',
         '2', '3', '0', '.'
+    };
+    static char keytable1[] = {
+        0, 0, '!', 0x22, '#', '$', '%', '&', 0x27, '(', ')', '~', '=', '~', 0, 0,
+        'Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', '`', '{', 0, 0, 'A', 'S',
+        'D', 'F', 'G', 'H', 'J', 'K', 'L', '+', '*', 0, 0, '}', 'Z', 'X', 'C', 'V',
+        'B', 'N', 'M', '<', '>', '?', 0, '*', 0, ' ', 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, '7', '8', '9', '-', '4', '5', '6', '+', '1',
+        '2', '3', '0', '.', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, '_', 0, 0, 0, 0, 0, 0, 0, 0, 0, '|', 0, 0,
     };
 
     struct TASK *task_a;
@@ -153,17 +164,25 @@ void HariMain(void) {
                 _sprintf(str, "%02X", i - 256);
                 putfonts8_asc_sht(sht_back, 0, 16, COL8_FFFFFF, COL8_008484, str, 2);
 
+                //キーコードを文字コードに変換
+                if (i < 0x80 + 256) {
+                    if (key_shift == 0)
+                        str[0] = keytable0[i - 256];
+                    else
+                        str[0] = keytable1[i - 256];
+                } else
+                    str[0] = 0;
+
                 //通常文字
-                if (i < 0x54 + 256 && keytable[i - 256] != 0) {
+                if (str[0] != 0) {
                     if (key_to == 0) { //task_a
                         if (cursor_x < 128) {
-                            str[0] = keytable[i - 256];
                             str[1] = 0;
                             putfonts8_asc_sht(sht_win, cursor_x, 28, COL8_000000, COL8_FFFFFF, str, 1);
                             cursor_x += 8;
                         }
                     } else //task_cons
-                        fifo32_put(&task_cons->fifo, keytable[i - 256] + 256);
+                        fifo32_put(&task_cons->fifo, str[0] + 256);
                 }
                 if (i == 256 + 0x0e) {
                     if (key_to == 0) {
@@ -184,10 +203,19 @@ void HariMain(void) {
                         make_wtitle8(buf_win, sht_win->bxsize, "task_a", 1);
                         make_wtitle8(buf_cons, sht_cons->bxsize, "console", 0);
                     }
-
                     sheet_refresh(sht_win, 0, 0, sht_win->bxsize, 21);
                     sheet_refresh(sht_cons, 0, 0, sht_cons->bxsize, 21);
                 }
+
+                if (i == 256 + 0x2a) //left shift enable
+                    key_shift |= 1;
+                if (i == 256 + 0x36) //right shift enable
+                    key_shift |= 2;
+                if (i == 256 + 0xaa) //left shift disable
+                    key_shift &= ~1;
+                if (i == 256 + 0xb6) //right shift disable
+                    key_shift &= ~2;
+
                 boxfill8(sht_win->buf, sht_win->bxsize, cursor_c, cursor_x, 28, cursor_x + 7, 43);
                 sheet_refresh(sht_win, cursor_x, 28, cursor_x + 8, 44);
             }
