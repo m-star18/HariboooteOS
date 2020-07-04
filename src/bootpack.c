@@ -9,9 +9,6 @@ void HariMain(void) {
     int i, j;
     unsigned int memtotal;
 
-    int key_to = 0; //どのタスクに入力するか
-    int key_shift = 0; //どのタスクに入力するか
-
     int cursor_x = 8;
     int cursor_c = COL8_FFFFFF;
 
@@ -56,6 +53,10 @@ void HariMain(void) {
 
     struct TASK *task_a;
     struct TASK *task_cons;
+
+    int key_to = 0; //どのタスクに入力するか
+    int key_shift = 0; //どのタスクに入力するか
+    int key_leds = (binfo->leds >> 4) & 7; //キーボードの状態
 
     fifo32_init(&fifo, 128, fifobuf, 0);
 
@@ -172,6 +173,14 @@ void HariMain(void) {
                         str[0] = keytable1[i - 256];
                 } else
                     str[0] = 0;
+
+                if (str[0] >= 'A' && str[0] <= 'Z') {
+                    //capslock off && shift off
+                    //capslock on && shift on
+                    //のときは小文字
+                    if (((key_leds & 4) == 0 && key_shift == 0) || ((key_leds & 4) != 0 && key_shift != 0))
+                        str[0] += 0x20;
+                }
 
                 //通常文字
                 if (str[0] != 0) {
