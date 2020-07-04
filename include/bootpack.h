@@ -163,6 +163,8 @@ void putblock8_8(char *vram, int vxsize, int pxsize, int pysize, int px0, int py
 #define KEYCMD_SENDTO_MOUSE 0xd4
 #define MOUSECMD_ENABLE 0xf4
 
+#define KEYCMD_LED 0xed
+
 #define KEYBUF_SIZE 32
 #define MOUSEBUF_SIZE 128
 
@@ -285,9 +287,10 @@ void inthandler20(int *esp);
 
 //bootpack.c
 void make_window8(unsigned char *buf, int xsize, int ysize, char *title, char act);
+void make_wtitle8(unsigned char *buf, int xsize, char *title, char act);
 void make_textbox8(struct SHEET *sht, int x0, int y0, int sx, int sy, int c);
 void putfonts8_asc_sht(struct SHEET *sht, int x, int y, int c, int b, char *s, int l);
-void task_b_main(struct SHEET *sht_back);
+void console_task(struct SHEET *sheet);
 
 //mtask.c
 #define MAX_TASKS 1000 //最大タスク数
@@ -309,6 +312,7 @@ struct TASK {
     int flags;
     int level;
     int priority;
+    struct FIFO32 fifo;
     struct TSS32 tss;
 };
 
@@ -337,5 +341,6 @@ void task_switch(void);
 void task_sleep(struct TASK *task);
 struct TASK *task_now(void);
 void task_switchsub(void);
+void task_idle(void);
 
 #endif
