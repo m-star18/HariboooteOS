@@ -5,6 +5,7 @@ void HariMain(void) {
     char str[32] = {0};
     char mcursor[16 * 16];
     int fifobuf[128];
+    int keycmd_buf[32];
     int mx, my;
     int i, j;
     unsigned int memtotal;
@@ -29,6 +30,7 @@ void HariMain(void) {
     unsigned char *buf_cons;
 
     struct FIFO32 fifo;
+    struct FIFO32 keycmd;
 
     struct TIMER *timer;
 
@@ -57,6 +59,13 @@ void HariMain(void) {
     int key_to = 0; //どのタスクに入力するか
     int key_shift = 0; //どのタスクに入力するか
     int key_leds = (binfo->leds >> 4) & 7; //キーボードの状態
+    /*
+        bit 4 -> ScrollLock
+        bit 5 -> NumlLock
+        bit 6 -> CapslLock
+        ここではこの3bitを取り出す
+    */
+    int keycmd_wait = -1;
 
     fifo32_init(&fifo, 128, fifobuf, 0);
 
@@ -151,7 +160,18 @@ void HariMain(void) {
     _sprintf(str, "memory %dMB    free : %dKB", memtotal / (1024 * 1024), memman_total(memman) / 1024);
     putfonts8_asc_sht(sht_back, 0, 32, COL8_FFFFFF, COL8_008484, str, 40);
 
+    //最初に設定しておく
+    fifo32_put(&keycmd, KEYCMD_LED);
+    fifo32_put(&keycmd, key_leds);
+
     for (;;) {
+        if (fifo32_status(&keycmd) > 0 && keycmd_wait < 0) {
+            //キーボードコントローラにデータを送信
+            keycmd_wait = fifo32_get(&keycmd);
+            wait_KBC_sendready();
+            io_out8(PORT_KEYDAT, keycmd_wait);
+        }
+
         io_cli();
         if (fifo32_status(&fifo) == 0) {
             task_sleep(task_a);
@@ -193,7 +213,7 @@ void HariMain(void) {
                     } else //task_cons
                         fifo32_put(&task_cons->fifo, str[0] + 256);
                 }
-                if (i == 256 + 0x0e) {
+                if (i == 256 + 0x0e) { //backspace
                     if (key_to == 0) {
                         if (cursor_x > 8) {
                             putfonts8_asc_sht(sht_win, cursor_x, 28, COL8_000000, COL8_FFFFFF, " ", 1);
@@ -224,6 +244,29 @@ void HariMain(void) {
                     key_shift &= ~1;
                 if (i == 256 + 0xb6) //right shift disable
                     key_shift &= ~2;
+
+                if (i == 256 + 0x3a) { //capslock
+                    key_leds ^= 4;
+                    fifo32_put(&keycmd, KEYCMD_LED);
+                    fifo32_put(&keycmd, key_leds);
+                }
+                if (i == 256 + 0x45) { //numlock
+                    key_leds ^= 2;
+                    fifo32_put(&keycmd, KEYCMD_LED);
+                    fifo32_put(&keycmd, key_leds);
+                }
+                if (i == 256 + 0x46) { //scrolllock
+                    key_leds ^= 1;
+                    fifo32_put(&keycmd, KEYCMD_LED);
+                    fifo32_put(&keycmd, key_leds);
+                }
+                if (i == 256 + 0xfa) //キーボードがデータを正しく受け取った
+                    keycmd_wait = -1;
+
+                if (i == 256 + 0xfe) { //キーボードがデータを正しく受け取れなかった
+                    wait_KBC_sendready();
+                    io_out8(PORT_KEYDAT, keycmd_wait);
+                }
 
                 boxfill8(sht_win->buf, sht_win->bxsize, cursor_c, cursor_x, 28, cursor_x + 7, 43);
                 sheet_refresh(sht_win, cursor_x, 28, cursor_x + 8, 44);

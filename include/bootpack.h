@@ -163,6 +163,8 @@ void putblock8_8(char *vram, int vxsize, int pxsize, int pysize, int px0, int py
 #define KEYCMD_SENDTO_MOUSE 0xd4
 #define MOUSECMD_ENABLE 0xf4
 
+#define KEYCMD_LED 0xed
+
 #define KEYBUF_SIZE 32
 #define MOUSEBUF_SIZE 128
 
