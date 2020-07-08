@@ -96,8 +96,7 @@ void HariMain(void) {
     task_a = task_init(memman);
     fifo.task = task_a;
     task_run(task_a, 1, 0);
-f(cursor_c >= 0){
-                        cursor_c = COL8_FFFFFF;
+
     init_palette();
     shtctl = shtctl_init(memman, binfo->vram, binfo->scrnx, binfo->scrny);
 
