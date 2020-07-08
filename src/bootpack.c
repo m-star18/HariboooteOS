@@ -242,6 +242,11 @@ void HariMain(void) {
                     sheet_refresh(sht_cons, 0, 0, sht_cons->bxsize, 21);
                 }
 
+                if (i == 256 + 0x1c) { //enter
+                    if (key_to != 0)
+                        fifo32_put(&task_cons->fifo, 10 + 256);
+                }
+
                 if (i == 256 + 0x2a) //left shift enable
                     key_shift |= 1;
                 if (i == 256 + 0x36) //right shift enable
@@ -424,6 +429,7 @@ void console_task(struct SHEET *sheet) {
     int fifobuf[128];
     int cursor_x = 16;
     int cursor_c = -2;
+    int cursor_y = 28;
     char s[16];
 
     fifo32_init(&task->fifo, 128, fifobuf, task);
@@ -471,20 +477,28 @@ void console_task(struct SHEET *sheet) {
                             putfonts8_asc_sht(sheet, cursor_x, 28, COL8_FFFFFF, COL8_000000, " ", 1);
                             cursor_x -= 8;
                         }
+                } else if (i == 10 + 256) { //enter
+                    if (cursor_y < 28 + 112) {
+                        //カーソルをスペースで消す
+                        putfonts8_asc_sht(sheet, cursor_x, cursor_y, COL8_FFFFFF, COL8_000000, " ", 1);
+                        cursor_y += 16;
+
+                        //プロンプト表示
+                        putfonts8_asc_sht(sheet, 8, cursor_y, COL8_FFFFFF, COL8_000000, ">", 1);
+                        cursor_x = 16;
+                    }
                 } else {
                     if (cursor_x < 128) {
                         s[0] = i - 256;
                         s[1] = 0;
-                        putfonts8_asc_sht(sheet, cursor_x, 28, COL8_FFFFFF, COL8_000000, s, 1);
+                        putfonts8_asc_sht(sheet, cursor_x, cursor_y, COL8_FFFFFF, COL8_000000, s, 1);
                         cursor_x += 8;
                     }
                 }
-                boxfill8(sheet->buf, sheet->bxsize, cursor_c, cursor_x, 28, cursor_x + 7, 43);
-                sheet_refresh(sheet, cursor_x, 28, cursor_x + 8, 44);
             }
             if (cursor_c >= 0)
-               boxfill8(sheet->buf, sheet->bxsize, cursor_c, cursor_x, 28, cursor_x + 7, 43);
-            sheet_refresh(sheet, cursor_x, 28, cursor_x + 8, 44);
+               boxfill8(sheet->buf, sheet->bxsize, cursor_c, cursor_x, cursor_y, cursor_x + 7, cursor_y + 15);
+            sheet_refresh(sheet, cursor_x, cursor_y, cursor_x + 8, cursor_y + 16);
         }
     }
 }
