@@ -58,6 +58,8 @@ $(IMG): $(IPL) $(OSL) $(OS)
 	cat $(OSL) $(OS) > $(SYSTEM_IMG)
 	mformat -f 1440 -B $(IPL) -C -i $(IMG) ::
 	mcopy $(SYSTEM_IMG) -i $(IMG) ::
+	mcopy Makefile -i $(IMG) ::
+	mcopy memo -i $(IMG) ::
 
 $(OS): $(addprefix $(TARGET_DIR)/, $(notdir $(OS_SRC:.c=.o))) $(STDLIBC) $(ASMLIB) $(FONT)
 	ld $(LFLAGS) -o $@ -T $(OS_LS) -e HariMain --oformat=binary $^

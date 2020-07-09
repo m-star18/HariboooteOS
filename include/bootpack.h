@@ -5,6 +5,7 @@
 #include "stdlibc.h"
 
 #define ADR_BOOTINFO 0x00000ff0
+#define ADR_DISKIMG 0x00100000
 
 struct BOOTINFO {
     char cyls;
@@ -97,7 +98,7 @@ struct SEGMENT_DESCRIPTOR {
     char base_mid, access_right;
     char limit_high, base_high;
 };
-
+#define ADR_DISKIMG 0x00100000
 struct GATE_DESCRIPTOR {
     short offset_low, selector;
     char dw_count, access_right;
@@ -343,5 +344,16 @@ void task_sleep(struct TASK *task);
 struct TASK *task_now(void);
 void task_switchsub(void);
 void task_idle(void);
+
+struct FILEINFO{
+    unsigned char name[8];
+    unsigned char ext[3];
+    unsigned char type;
+    char reserver[10];
+    unsigned short time;
+    unsigned short date;
+    unsigned short clustno;
+    unsigned int size;
+};
 
 #endif
