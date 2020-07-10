@@ -5,7 +5,6 @@
 #include "stdlibc.h"
 
 #define ADR_BOOTINFO 0x00000ff0
-#define ADR_DISKIMG 0x00100000
 
 struct BOOTINFO {
     char cyls;
@@ -98,7 +97,7 @@ struct SEGMENT_DESCRIPTOR {
     char base_mid, access_right;
     char limit_high, base_high;
 };
-#define ADR_DISKIMG 0x00100000
+
 struct GATE_DESCRIPTOR {
     short offset_low, selector;
     char dw_count, access_right;
@@ -286,16 +285,6 @@ void timer_init(struct TIMER *timer, struct FIFO32 *fifo, int data);
 void timer_settime(struct TIMER *timer, unsigned int timeout);
 void inthandler20(int *esp);
 
-//bootpack.c
-void make_window8(unsigned char *buf, int xsize, int ysize, char *title, char act);
-void make_wtitle8(unsigned char *buf, int xsize, char *title, char act);
-void make_textbox8(struct SHEET *sht, int x0, int y0, int sx, int sy, int c);
-void putfonts8_asc_sht(struct SHEET *sht, int x, int y, int c, int b, char *s, int l);
-void console_task(struct SHEET *sheet, unsigned int memtotal);
-int cons_newline(int cursor_y, struct SHEET *sheet);
-void file_readfat(int *fat, unsigned char *img);
-void file_loadfile(int clustono, int size, char *buf, int *fat, char *img);
-
 //mtask.c
 #define MAX_TASKS 1000 //最大タスク数
 #define TASK_GDT0 3 //タスクに割り当てるGDTの最初の位置
@@ -347,6 +336,9 @@ struct TASK *task_now(void);
 void task_switchsub(void);
 void task_idle(void);
 
+//file.c
+#define ADR_DISKIMG 0x00100000
+
 struct FILEINFO {
     unsigned char name[8];
     unsigned char ext[3];
@@ -357,5 +349,18 @@ struct FILEINFO {
     unsigned short clustno;
     unsigned int size;
 };
+
+void file_readfat(int *fat, unsigned char *img);
+void file_loadfile(int clustono, int size, char *buf, int *fat, char *img);
+
+//console.c
+void console_task(struct SHEET *sheet, unsigned int memtotal);
+int cons_newline(int cursor_y, struct SHEET *sheet);
+
+//window.c
+void make_window8(unsigned char *buf, int xsize, int ysize, char *title, char act);
+void make_wtitle8(unsigned char *buf, int xsize, char *title, char act);
+void make_textbox8(struct SHEET *sht, int x0, int y0, int sx, int sy, int c);
+void putfonts8_asc_sht(struct SHEET *sht, int x, int y, int c, int b, char *s, int l);
 
 #endif
