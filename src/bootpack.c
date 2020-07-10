@@ -427,6 +427,9 @@ void console_task(struct SHEET *sheet, unsigned int memtotal) {
     struct MEMMAN *memman = (struct MEMMAN *) MEMMAN_ADDR;
     struct FILEINFO *finfo = (struct FILEINFO *) (ADR_DISKIMG + 0x002600);
 
+    int *fat = (int *) memman_alloc_4k(memman, 4 * 2880);
+    file_readfat(fat, (unsigned char *) (ADR_DISKIMG + 0x000200));
+
     fifo32_init(&task->fifo, 128, fifobuf, task);
 
     timer = timer_alloc();
@@ -555,16 +558,16 @@ type_next_file:
 
                         //見つかった
                         if (x < 224 && finfo[x].name[0] != 0x00) {
-                            y = finfo[x].size;
-                            p = (char *) (finfo[x].clustno * 512 + 0x003e00 + ADR_DISKIMG);
+                            p = (char *) memman_alloc_4k(memman, finfo[x].size);
+                            file_loadfile(finfo[x].clustno, finfo[x].size, p, fat, (char *) (ADR_DISKIMG + 0x003e00));
                             cursor_x = 8;
 
-                            for (x = 0; x < y; x++) {
-                                str[0] = p[x];
+                            for (y = 0; y < finfo[x].size; y++) {
+                                str[0] = p[y];
                                 str[1] = 0;
 
                                 //tab
-                                if (str[0] == 0x09) {
+                                if(str[0] == 0x09) {
                                     for (;;) {
                                         putfonts8_asc_sht(sheet, cursor_x, cursor_y, COL8_FFFFFF, COL8_000000, " ", 1);
                                         cursor_x += 8;
@@ -576,15 +579,16 @@ type_next_file:
                                         //32で割り切れるまで
                                         if ((cursor_x - 8) & 0x1f) break;
                                     }
+
                                 //改行(LF)
                                 } else if (str[0] == 0x0a) {
                                     cursor_x = 8;
                                     cursor_y = cons_newline(cursor_y, sheet);
+
                                 //CR
                                 } else if (str[0] == 0x0d) {
                                 } else {
-                                    putfonts8_asc_sht(sheet, cursor_x, cursor_y, COL8_FFFFFF, COL8_000000, str, 1);
-                                    cursor_x += 8;
+                                    putfonts8_asc_sht(sheet, cursor_x, cursor_y, COL8_FFFFFF, COL8_000000, str, 1);cursor_x += 8;
                                     //改行
                                     if (cursor_x == 8 + 240) {
                                         cursor_x = 8;
@@ -592,6 +596,7 @@ type_next_file:
                                     }
                                 }
                             }
+                            memman_free_4k(memman, (int) p, finfo[x].size);
 
                         } else {
                             putfonts8_asc_sht(sheet, 8, cursor_y, COL8_FFFFFF, COL8_000000, "File not found.", 15);
@@ -647,4 +652,35 @@ int cons_newline(int cursor_y, struct SHEET *sheet) {
     }
 
     return cursor_y;
+}
+
+void file_readfat(int *fat, unsigned char *img) {
+    int i;
+    int j = 0;
+
+    //2880 byte -> fatの大きさ
+    for (i = 0; i < 2880; i += 2) {
+        fat[i + 0] = (img[j + 0] | img[j + 1] << 8) & 0xfff;
+        fat[i + 1] = (img[j + 1] >> 4 | img[j + 2] << 4) & 0xfff;
+        j += 3;
+    }
+}
+
+void file_loadfile(int clustono, int size, char *buf, int *fat, char *img) {
+    int i;
+
+    for (;;) {
+        if (size <= 512) {
+            for (i = 0; i < size; i++)
+                buf[i] = img[clustono * 512 + i];
+            break;
+        }
+
+        for (i = 0; i < 512; i++)
+            buf[i] = img[clustono * 512 + i];
+
+        size -= 512;
+        buf += 512;
+        clustono = fat[clustono];
+    }
 }

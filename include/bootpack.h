@@ -293,6 +293,8 @@ void make_textbox8(struct SHEET *sht, int x0, int y0, int sx, int sy, int c);
 void putfonts8_asc_sht(struct SHEET *sht, int x, int y, int c, int b, char *s, int l);
 void console_task(struct SHEET *sheet, unsigned int memtotal);
 int cons_newline(int cursor_y, struct SHEET *sheet);
+void file_readfat(int *fat, unsigned char *img);
+void file_loadfile(int clustono, int size, char *buf, int *fat, char *img);
 
 //mtask.c
 #define MAX_TASKS 1000 //最大タスク数
@@ -345,7 +347,7 @@ struct TASK *task_now(void);
 void task_switchsub(void);
 void task_idle(void);
 
-struct FILEINFO{
+struct FILEINFO {
     unsigned char name[8];
     unsigned char ext[3];
     unsigned char type;
