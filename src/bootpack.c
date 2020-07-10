@@ -520,7 +520,8 @@ void console_task(struct SHEET *sheet, unsigned int memtotal) {
                             }
                         }
                         cursor_y = cons_newline(cursor_y, sheet);
-                    } else if (cmdline[0] == 't' && cmdline[1] == 'y' && cmdline[2] == 'p' && cmdline[3] == 'e' && cmdline[4] == ' ') {
+
+                    } else if (_strncmp(cmdline, "type ", 5) == 0) {
                         //ファイル名を取得
                         for (y = 0; y < 11; y++)
                             str[y] = ' ';
@@ -561,13 +562,34 @@ type_next_file:
                             for (x = 0; x < y; x++) {
                                 str[0] = p[x];
                                 str[1] = 0;
-                                putfonts8_asc_sht(sheet, cursor_x, cursor_y, COL8_FFFFFF, COL8_000000, str, 1);
-                                cursor_x += 8;
 
-                                //改行
-                                if (cursor_x == 8 + 240) {
+                                //tab
+                                if (str[0] == 0x09) {
+                                    for (;;) {
+                                        putfonts8_asc_sht(sheet, cursor_x, cursor_y, COL8_FFFFFF, COL8_000000, " ", 1);
+                                        cursor_x += 8;
+                                        if (cursor_x == 8 + 240) {
+                                            cursor_x = 8;
+                                            cursor_y = cons_newline(cursor_y, sheet);
+                                        }
+
+                                        //32で割り切れるまで
+                                        if ((cursor_x - 8) & 0x1f) break;
+                                    }
+                                //改行(LF)
+                                } else if (str[0] == 0x0a) {
                                     cursor_x = 8;
                                     cursor_y = cons_newline(cursor_y, sheet);
+                                //CR
+                                } else if (str[0] == 0x0d) {
+                                } else {
+                                    putfonts8_asc_sht(sheet, cursor_x, cursor_y, COL8_FFFFFF, COL8_000000, str, 1);
+                                    cursor_x += 8;
+                                    //改行
+                                    if (cursor_x == 8 + 240) {
+                                        cursor_x = 8;
+                                        cursor_y = cons_newline(cursor_y, sheet);
+                                    }
                                 }
                             }
 
