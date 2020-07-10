@@ -422,6 +422,7 @@ void console_task(struct SHEET *sheet, unsigned int memtotal) {
     int cursor_y = 28;
     char str[16];
     char cmdline[30];
+    char *p;
 
     struct MEMMAN *memman = (struct MEMMAN *) MEMMAN_ADDR;
     struct FILEINFO *finfo = (struct FILEINFO *) (ADR_DISKIMG + 0x002600);
@@ -517,6 +518,62 @@ void console_task(struct SHEET *sheet, unsigned int memtotal) {
                                     cursor_y = cons_newline(cursor_y, sheet);
                                 }
                             }
+                        }
+                        cursor_y = cons_newline(cursor_y, sheet);
+                    } else if (cmdline[0] == 't' && cmdline[1] == 'y' && cmdline[2] == 'p' && cmdline[3] == 'e' && cmdline[4] == ' ') {
+                        //ファイル名を取得
+                        for (y = 0; y < 11; y++)
+                            str[y] = ' ';
+
+                        y = 0;
+                        for (x = 5; y < 11 && cmdline[x] != 0; x++) {
+                            if (cmdline[x] == '.' && y <= 8)
+                                y = 8;
+                            else {
+                                str[y] = cmdline[x];
+                                if (str[y] >= 'a' && str[y] <= 'z')
+                                    str[y] -= 0x20;
+                                y++;
+                            }
+                        }
+
+                        //ファイルを探す
+                        for (x = 0; x < 224; ) {
+                            if (finfo[x].name[0] == 0x00) break;
+
+                            if ((finfo[x].type & 0x18) == 0) {
+                                for (y = 0; y < 11; y++) {
+                                    if (finfo[x].name[y] != str[y])
+                                        goto type_next_file;
+                                }
+                                break; //ファイルが見つかった
+                            }
+type_next_file:
+                            x++;
+                        }
+
+                        //見つかった
+                        if (x < 224 && finfo[x].name[0] != 0x00) {
+                            y = finfo[x].size;
+                            p = (char *) (finfo[x].clustno * 512 + 0x003e00 + ADR_DISKIMG);
+                            cursor_x = 8;
+
+                            for (x = 0; x < y; x++) {
+                                str[0] = p[x];
+                                str[1] = 0;
+                                putfonts8_asc_sht(sheet, cursor_x, cursor_y, COL8_FFFFFF, COL8_000000, str, 1);
+                                cursor_x += 8;
+
+                                //改行
+                                if (cursor_x == 8 + 240) {
+                                    cursor_x = 8;
+                                    cursor_y = cons_newline(cursor_y, sheet);
+                                }
+                            }
+
+                        } else {
+                            putfonts8_asc_sht(sheet, 8, cursor_y, COL8_FFFFFF, COL8_000000, "File not found.", 15);
+                            cursor_y = cons_newline(cursor_y, sheet);
                         }
                         cursor_y = cons_newline(cursor_y, sheet);
 
