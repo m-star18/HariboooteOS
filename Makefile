@@ -44,6 +44,8 @@ EXCLUDE_EXLIB_DEP_FILE = *.swp
 
 IMG = $(TARGET_DIR)/haribooote.img
 
+HLT_APP = $(TARGET_DIR)/hlt.hrb
+
 all: $(IMG)
 
 $(FONT) : $(shell find $(FONT_DIR) -type f -not -name '$(EXCLUDE_EXLIB_DEP_FILE)' -not -name '$(notdir $(FONT))')
@@ -54,12 +56,12 @@ $(STDLIBC) : $(shell find $(STDLIBC_DIR) -type f -not -name '$(EXCLUDE_EXLIB_DEP
 	@echo [Dependent Files] STDLIBC: $^
 	cd $(STDLIBC_DIR); make all
 
-$(IMG): $(IPL) $(OSL) $(OS)
+$(IMG): $(IPL) $(OSL) $(OS) $(HLT_APP)
 	cat $(OSL) $(OS) > $(SYSTEM_IMG)
 	mformat -f 1440 -B $(IPL) -C -i $(IMG) ::
 	mcopy $(SYSTEM_IMG) -i $(IMG) ::
+	mcopy $(HLT_APP) -i $(IMG) ::
 	mcopy Makefile -i $(IMG) ::
-	mcopy memo -i $(IMG) ::
 
 $(OS): $(addprefix $(TARGET_DIR)/, $(notdir $(OS_SRC:.c=.o))) $(STDLIBC) $(ASMLIB) $(FONT)
 	ld $(LFLAGS) -o $@ -T $(OS_LS) -e HariMain --oformat=binary $^
@@ -80,11 +82,15 @@ $(OSL): $(OSL_SRC)
 	$(CC) $(CFLAGS) -o $@ -T $(OSL_LS) $(OSL_SRC)
 	$(CC) $(CFLAGS) -o $(addprefix $(TMP_DIR)/, $(notdir $(@F:.s=.o))) -T $(OSL_LS) -c -g -Wa,-a,-ad $(OSL_SRC) > $(addprefix $(LST_DIR)/, $(notdir $(@F:.bin=.lst)))
 
+$(HLT_APP): src/hlt_app/hlt.s
+	gcc -c -nostdlib -m32 -o $(TARGET_DIR)/hlt.o src/hlt_app/hlt.s
+	objcopy -O binary $(TARGET_DIR)/hlt.o $(HLT_APP)
+
 run: all
 	$(QEMU) -m 32M -drive format=raw,file=$(IMG),if=floppy
 
 debug: all
-	$(QEMU) -drive format=raw,file=$(TARGET_IMG),if=floppy -gdb tcp::10000 -S
+	$(QEMU) -drive format=raw,file=$(IMG),if=floppy -gdb tcp::10000 -S
 
 clean:
 	rm -rf $(TARGET_DIR)
