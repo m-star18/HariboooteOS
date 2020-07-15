@@ -16,6 +16,7 @@ void console_task(struct SHEET *sheet, unsigned int memtotal) {
 
     struct MEMMAN *memman = (struct MEMMAN *) MEMMAN_ADDR;
     struct FILEINFO *finfo = (struct FILEINFO *) (ADR_DISKIMG + 0x002600);
+    struct SEGMENT_DESCRIPTOR *gdt = (struct SEGMENT_DESCRIPTOR *) ADR_GDT;
 
     int *fat = (int *) memman_alloc_4k(memman, 4 * 2880);
     file_readfat(fat, (unsigned char *) (ADR_DISKIMG + 0x000200));
@@ -117,7 +118,7 @@ void console_task(struct SHEET *sheet, unsigned int memtotal) {
 
                     } else if (_strncmp(cmdline, "type ", 5) == 0) {
                         //ファイル名を取得
-                        for(y = 0; y < 11; y++)
+                        for (y = 0; y < 11; y++)
                             str[y] = ' ';
 
                         y = 0;
@@ -133,7 +134,7 @@ void console_task(struct SHEET *sheet, unsigned int memtotal) {
                         }
 
                         //ファイルを探す
-                        for (x = 0; x < 224; ) {
+                        for (x = 0; x < 224;) {
                             if (finfo[x].name[0] == 0x00) break;
 
                             if ((finfo[x].type & 0x18) == 0) {
@@ -143,7 +144,7 @@ void console_task(struct SHEET *sheet, unsigned int memtotal) {
                                 }
                                 break; //ファイルが見つかった
                             }
-type_next_file:
+                            type_next_file:
                             x++;
                         }
 
@@ -171,12 +172,12 @@ type_next_file:
                                         if ((cursor_x - 8) & 0x1f) break;
                                     }
 
-                                //改行(LF)
+                                    //改行(LF)
                                 } else if (str[0] == 0x0a) {
                                     cursor_x = 8;
                                     cursor_y = cons_newline(cursor_y, sheet);
 
-                                //CR
+                                    //CR
                                 } else if (str[0] == 0x0d) {
                                 } else {
                                     putfonts8_asc_sht(sheet, cursor_x, cursor_y, COL8_FFFFFF, COL8_000000, str, 1);
@@ -188,6 +189,45 @@ type_next_file:
                                     }
                                 }
                             }
+                            memman_free_4k(memman, (int) p, finfo[x].size);
+
+                        } else {
+                            putfonts8_asc_sht(sheet, 8, cursor_y, COL8_FFFFFF, COL8_000000, "File not found.", 15);
+                            cursor_y = cons_newline(cursor_y, sheet);
+                        }
+                        cursor_y = cons_newline(cursor_y, sheet);
+
+                    } else if(_strcmp(cmdline, "hlt") == 0) {
+                        for (y = 0; y < 11; y++)
+                            str[y] = ' ';
+
+                        str[0] = 'H';
+                        str[1] = 'L';
+                        str[2] = 'T';
+                        str[8] = 'H';
+                        str[9] = 'R';
+                        str[10] = 'B';
+
+                        //ファイルを探す
+                        for (x = 0; x < 224; ) {
+                            if (finfo[x].name[0] == 0x00) break;
+
+                            if ((finfo[x].type & 0x18) == 0) {
+                                for (y = 0; y < 11; y++) {
+                                    if (finfo[x].name[y] != str[y])
+                                        goto hlt_next_file;
+                                }
+                                break; //ファイルが見つかった
+                            }
+hlt_next_file:
+                            x++;
+                        }
+
+                        if (x < 224 && finfo[x].name[0] != 0x00) {
+                            p = (char *) memman_alloc_4k(memman, finfo[x].size);
+                            file_loadfile(finfo[x].clustno, finfo[x].size, p, fat, (char *) (ADR_DISKIMG + 0x003e00));
+                            set_segmdesc(gdt + 1003, finfo[x].size - 1, (int) p, AR_CODE32_ER);
+                            farjmp(0, 1003 * 8);
                             memman_free_4k(memman, (int) p, finfo[x].size);
 
                         } else {
