@@ -18,6 +18,8 @@ OS_SRC=$(wildcard $(OS_SRC_DIR)/*.c)
 OS_LS = scripts/bootpack.lds
 OS = $(TARGET_DIR)/os.bin
 
+OS_MMAP = $(TARGET_DIR)/os.map
+
 OS_ENTRY_POINT = HariMain
 
 SYSTEM_IMG = bin/haribooote.bin

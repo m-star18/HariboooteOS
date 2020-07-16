@@ -13,6 +13,9 @@
 .global asm_inthandler21, asm_inthandler2c, asm_inthandler27, asm_inthandler20
 .global memtest_sub
 
+.global asm_cons_putchar
+.global farcall
+
 .extern inthandler21, inthandler2c, inthandler27, inthandler20
 
 .extern cons_putchar
@@ -233,10 +236,14 @@ mts_fin:
     ret
 
 asm_cons_putchar:
-    pushl $1
-    andl $0xff, %eax
-    pushl %eax
-    pushl (0xfec)
+    and $0x000000ff, %eax
+    push $1
+    push %eax
+    push (0x0fec)
     call cons_putchar
     addl $12, %esp
     lret
+
+farcall:
+    lcall 4(%esp)
+    ret
