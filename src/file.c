@@ -30,3 +30,39 @@ void file_loadfile(int clustono, int size, char *buf, int *fat, char *img) {
         clustono = fat[clustono];
     }
 }
+
+struct FILEINFO *file_search(char *name, struct FILEINFO *finfo, int max) {
+    int i, j;
+    char str[12];
+
+    for (j = 0; j < 11; j++)
+        str[j] = ' ';
+    j = 0;
+
+    //nameをFATの情報に揃える
+    for (i = 0; name[i] != 0; i++) {
+        if (j >= 11) return 0; //見つからなかった
+        if (name[i] == '.' && j <= 8)
+            j = 8; //これ以降は拡張子
+
+        else {
+            str[j] = name[i];
+            if (str[j] >= 'a' && str[j] <= 'z')
+                str[j] -= 0x20;
+            j++;
+        }
+    }
+
+    for (i = 0; i < max;) {
+        if (finfo[i].name[0] == 0x00) break;
+        if ((finfo[i].type & 0x18) == 0) {
+            for (j = 0; j < 11; j++)
+                if (finfo[i].name[j] != str[j]) goto next;
+            return finfo + i;
+        }
+next:
+        i++;
+    }
+
+    return 0; //見つからなかった
+}
