@@ -14,6 +14,8 @@ void console_task(struct SHEET *sheet, unsigned int memtotal) {
     cons.cur_y = 28;
     cons.cur_c = -1;
 
+    *((int *) 0xfec) = (int) & cons;
+
     struct MEMMAN *memman = (struct MEMMAN *) MEMMAN_ADDR;
 
     int *fat = (int *) memman_alloc_4k(memman, 4 * 2880);

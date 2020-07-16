@@ -15,6 +15,8 @@
 
 .extern inthandler21, inthandler2c, inthandler27, inthandler20
 
+.extern cons_putchar
+
 #void io_htl(void)
 io_hlt:
     hlt
@@ -229,3 +231,12 @@ mts_fin:
     pop %esi
     pop %edi
     ret
+
+asm_cons_putchar:
+    pushl $1
+    andl $0xff, %eax
+    pushl %eax
+    pushl (0xfec)
+    call cons_putchar
+    addl $12, %esp
+    lret

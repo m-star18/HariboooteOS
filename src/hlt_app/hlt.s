@@ -1,6 +1,7 @@
- .arch i486
+.arch i486
 
-cli
+movb 0x41, %al
+call 0x4c1f
 
 fin:
     hlt
