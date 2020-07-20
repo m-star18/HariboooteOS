@@ -46,10 +46,25 @@ EXCLUDE_EXLIB_DEP_FILE = *.swp
 
 IMG = $(TARGET_DIR)/haribooote.img
 
-APP1_SRC = src/app/hello.s
-APP1 = $(TARGET_DIR)/hello
-APP2_SRC = src/app/hello2.s
-APP2 = $(TARGET_DIR)/hello2
+#application
+APP_TARGET_DIR = $(TARGET_DIR)/app/dist
+
+APPS = $(APP1) $(APP2) $(APP3) $(APP4) $(APP5)
+
+APP1_SRC_DIR = src/app/hello
+APP1 = $(APP_TARGET_DIR)/hello
+
+APP2_SRC_DIR = src/app/hello2
+APP2 = $(APP_TARGET_DIR)/hello2
+
+APP3_SRC_DIR = src/app/a
+APP3 = $(APP_TARGET_DIR)/a
+
+APP4_SRC_DIR = src/app/hello3
+APP4 = $(APP_TARGET_DIR)/hello3
+
+APP5_SRC_DIR = src/app/crack1
+APP5 = $(APP_TARGET_DIR)/crack1
 
 all: $(IMG)
 
@@ -61,12 +76,15 @@ $(STDLIBC) : $(shell find $(STDLIBC_DIR) -type f -not -name '$(EXCLUDE_EXLIB_DEP
 	@echo [Dependent Files] STDLIBC: $^
 	cd $(STDLIBC_DIR); make all
 
-$(IMG): $(IPL) $(OSL) $(OS) $(APP1) $(APP2)
+$(IMG): $(IPL) $(OSL) $(OS) $(APPS)
 	cat $(OSL) $(OS) > $(SYSTEM_IMG)
 	mformat -f 1440 -B $(IPL) -C -i $(IMG) ::
 	mcopy $(SYSTEM_IMG) -i $(IMG) ::
 	mcopy $(APP1) -i $(IMG) ::
 	mcopy $(APP2) -i $(IMG) ::
+	mcopy $(APP3) -i $(IMG) ::
+	mcopy $(APP4) -i $(IMG) ::
+	mcopy $(APP5) -i $(IMG) ::
 	mcopy Makefile -i $(IMG) ::
 
 $(OS): $(addprefix $(TARGET_DIR)/, $(notdir $(OS_SRC:.c=.o))) $(STDLIBC) $(ASMLIB) $(FONT)
@@ -88,13 +106,20 @@ $(OSL): $(OSL_SRC)
 	$(CC) $(CFLAGS) -o $@ -T $(OSL_LS) $(OSL_SRC)
 	$(CC) $(CFLAGS) -o $(addprefix $(TMP_DIR)/, $(notdir $(@F:.s=.o))) -T $(OSL_LS) -c -g -Wa,-a,-ad $(OSL_SRC) > $(addprefix $(LST_DIR)/, $(notdir $(@F:.bin=.lst)))
 
-$(APP1): $(APP1_SRC)
-	gcc -c $(CFLAGS) -o $(APP1).o $(APP1_SRC)
-	objcopy -O binary $(APP1).o $(APP1)
+$(APP1): $(APP1_SRC_DIR)
+	cd $(APP1_SRC_DIR); make
 
 $(APP2): $(APP2_SRC)
-	gcc -c $(CFLAGS) -o $(APP2).o $(APP2_SRC)
-	objcopy -O binary $(APP2).o $(APP2)
+	cd $(APP2_SRC_DIR); make
+
+$(APP3): $(APP3_SRC_DIR)
+	cd $(APP3_SRC_DIR); make
+
+$(APP4): $(APP4_SRC_DIR)
+	cd $(APP4_SRC_DIR); make
+
+$(APP5): $(APP5_SRC_DIR)
+	cd $(APP5_SRC_DIR); make
 
 run: all
 	$(QEMU) -m 32M -drive format=raw,file=$(IMG),if=floppy
