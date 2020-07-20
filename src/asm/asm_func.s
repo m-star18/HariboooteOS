@@ -237,12 +237,14 @@ mts_fin:
 
 asm_cons_putchar:
     sti
+    pusha
     and $0x000000ff, %eax
     push $1
     push %eax
     push (0x0fec)
     call cons_putchar
     addl $12, %esp
+    popa
     iret
 
 farcall:
