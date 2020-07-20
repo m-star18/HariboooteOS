@@ -46,7 +46,7 @@ EXCLUDE_EXLIB_DEP_FILE = *.swp
 
 IMG = $(TARGET_DIR)/haribooote.img
 
-HLT_APP = $(TARGET_DIR)/hlt.hrb
+HLT_APP = $(TARGET_DIR)/hello.hrb
 
 all: $(IMG)
 
