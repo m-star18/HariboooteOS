@@ -50,6 +50,8 @@ APP1_SRC = src/app/hello.s
 APP1 = $(TARGET_DIR)/hello
 APP2_SRC = src/app/hello2.s
 APP2 = $(TARGET_DIR)/hello2
+APP3 = $(TARGET_DIR)/a
+APP4 = $(TARGET_DIR)/hello3
 
 all: $(IMG)
 
@@ -61,12 +63,14 @@ $(STDLIBC) : $(shell find $(STDLIBC_DIR) -type f -not -name '$(EXCLUDE_EXLIB_DEP
 	@echo [Dependent Files] STDLIBC: $^
 	cd $(STDLIBC_DIR); make all
 
-$(IMG): $(IPL) $(OSL) $(OS) $(APP1) $(APP2)
+$(IMG): $(IPL) $(OSL) $(OS) $(APP1) $(APP2) $(APP3)
 	cat $(OSL) $(OS) > $(SYSTEM_IMG)
 	mformat -f 1440 -B $(IPL) -C -i $(IMG) ::
 	mcopy $(SYSTEM_IMG) -i $(IMG) ::
 	mcopy $(APP1) -i $(IMG) ::
 	mcopy $(APP2) -i $(IMG) ::
+	mcopy $(APP3) -i $(IMG) ::
+	mcopy $(APP4) -i $(IMG) ::
 	mcopy Makefile -i $(IMG) ::
 
 $(OS): $(addprefix $(TARGET_DIR)/, $(notdir $(OS_SRC:.c=.o))) $(STDLIBC) $(ASMLIB) $(FONT)
@@ -89,12 +93,19 @@ $(OSL): $(OSL_SRC)
 	$(CC) $(CFLAGS) -o $(addprefix $(TMP_DIR)/, $(notdir $(@F:.s=.o))) -T $(OSL_LS) -c -g -Wa,-a,-ad $(OSL_SRC) > $(addprefix $(LST_DIR)/, $(notdir $(@F:.bin=.lst)))
 
 $(APP1): $(APP1_SRC)
-	gcc -c $(CFLAGS) -o $(APP1).o $(APP1_SRC)
+	$(CC) -c $(CFLAGS) -o $(APP1).o $(APP1_SRC)
 	objcopy -O binary $(APP1).o $(APP1)
 
 $(APP2): $(APP2_SRC)
-	gcc -c $(CFLAGS) -o $(APP2).o $(APP2_SRC)
+	$(CC) -c $(CFLAGS) -o $(APP2).o $(APP2_SRC)
 	objcopy -O binary $(APP2).o $(APP2)
+
+$(APP3): src/app/a.c src/app/a_asm.s src/app/hello3.c
+	$(CC) -c $(CFLAGS) -o $(TARGET_DIR)/a.o src/app/a.c
+	$(CC) -c $(CFLAGS) -o $(TARGET_DIR)/hello3.o src/app/hello3.c
+	$(CC) -c $(CFLAGS) -o $(TARGET_DIR)/a_asm.o src/app/a_asm.s
+	ld $(LFLAGS) -o $(APP3) --oformat=binary -e __start -T scripts/app.lds $(TARGET_DIR)/a_asm.o $(TARGET_DIR)/a.o
+	ld $(LFLAGS) -o $(APP4) --oformat=binary -e __start -T scripts/app.lds $(TARGET_DIR)/a_asm.o $(TARGET_DIR)/hello3.o
 
 run: all
 	$(QEMU) -m 32M -drive format=raw,file=$(IMG),if=floppy
