@@ -18,6 +18,8 @@ OS_SRC=$(wildcard $(OS_SRC_DIR)/*.c)
 OS_LS = scripts/bootpack.lds
 OS = $(TARGET_DIR)/os.bin
 
+OS_MMAP = $(TARGET_DIR)/os.map
+
 OS_ENTRY_POINT = HariMain
 
 SYSTEM_IMG = bin/haribooote.bin
@@ -44,7 +46,10 @@ EXCLUDE_EXLIB_DEP_FILE = *.swp
 
 IMG = $(TARGET_DIR)/haribooote.img
 
-HLT_APP = $(TARGET_DIR)/hlt.hrb
+APP1_SRC = src/app/hello.s
+APP1 = $(TARGET_DIR)/hello
+APP2_SRC = src/app/hello2.s
+APP2 = $(TARGET_DIR)/hello2
 
 all: $(IMG)
 
@@ -56,15 +61,16 @@ $(STDLIBC) : $(shell find $(STDLIBC_DIR) -type f -not -name '$(EXCLUDE_EXLIB_DEP
 	@echo [Dependent Files] STDLIBC: $^
 	cd $(STDLIBC_DIR); make all
 
-$(IMG): $(IPL) $(OSL) $(OS) $(HLT_APP)
+$(IMG): $(IPL) $(OSL) $(OS) $(APP1) $(APP2)
 	cat $(OSL) $(OS) > $(SYSTEM_IMG)
 	mformat -f 1440 -B $(IPL) -C -i $(IMG) ::
 	mcopy $(SYSTEM_IMG) -i $(IMG) ::
-	mcopy $(HLT_APP) -i $(IMG) ::
+	mcopy $(APP1) -i $(IMG) ::
+	mcopy $(APP2) -i $(IMG) ::
 	mcopy Makefile -i $(IMG) ::
 
 $(OS): $(addprefix $(TARGET_DIR)/, $(notdir $(OS_SRC:.c=.o))) $(STDLIBC) $(ASMLIB) $(FONT)
-	ld $(LFLAGS) -o $@ -T $(OS_LS) -e HariMain --oformat=binary $^
+	ld $(LFLAGS) -o $@ -T $(OS_LS) -e HariMain --oformat=binary -Map=$(OS_MMAP) $^
 
 $(ASMLIB): $(ASMLIB_SRC)
 	$(CC) $(CFLAGS) -c -g -Wa,-a,-ad $< -o $@ > $(addprefix $(LST_DIR)/, $(notdir $(@F:.o=.lst)))
@@ -82,9 +88,13 @@ $(OSL): $(OSL_SRC)
 	$(CC) $(CFLAGS) -o $@ -T $(OSL_LS) $(OSL_SRC)
 	$(CC) $(CFLAGS) -o $(addprefix $(TMP_DIR)/, $(notdir $(@F:.s=.o))) -T $(OSL_LS) -c -g -Wa,-a,-ad $(OSL_SRC) > $(addprefix $(LST_DIR)/, $(notdir $(@F:.bin=.lst)))
 
-$(HLT_APP): src/hlt_app/hlt.s
-	gcc -c -nostdlib -m32 -o $(TARGET_DIR)/hlt.o src/hlt_app/hlt.s
-	objcopy -O binary $(TARGET_DIR)/hlt.o $(HLT_APP)
+$(APP1): $(APP1_SRC)
+	gcc -c $(CFLAGS) -o $(APP1).o $(APP1_SRC)
+	objcopy -O binary $(APP1).o $(APP1)
+
+$(APP2): $(APP2_SRC)
+	gcc -c $(CFLAGS) -o $(APP2).o $(APP2_SRC)
+	objcopy -O binary $(APP2).o $(APP2)
 
 run: all
 	$(QEMU) -m 32M -drive format=raw,file=$(IMG),if=floppy

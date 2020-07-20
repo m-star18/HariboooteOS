@@ -13,7 +13,11 @@
 .global asm_inthandler21, asm_inthandler2c, asm_inthandler27, asm_inthandler20
 .global memtest_sub
 
+.global asm_hrb_api
+.global farcall
+
 .extern inthandler21, inthandler2c, inthandler27, inthandler20
+.extern hrb_api
 
 #void io_htl(void)
 io_hlt:
@@ -229,3 +233,16 @@ mts_fin:
     pop %esi
     pop %edi
     ret
+
+farcall:
+    lcall 4(%esp)
+    ret
+
+asm_hrb_api:
+    sti
+    pusha #保存のため
+    pusha #hrb_apiにわたすため
+    call hrb_api
+    add $32, %esp
+    popa
+    iret
