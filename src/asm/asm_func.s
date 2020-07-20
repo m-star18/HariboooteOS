@@ -236,13 +236,14 @@ mts_fin:
     ret
 
 asm_cons_putchar:
+    sti
     and $0x000000ff, %eax
     push $1
     push %eax
     push (0x0fec)
     call cons_putchar
     addl $12, %esp
-    lret
+    iret
 
 farcall:
     lcall 4(%esp)

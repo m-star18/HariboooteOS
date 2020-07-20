@@ -1,14 +1,14 @@
 .arch i486
 
 movb $'h', %al
-lcall $2 * 8, $0x4c1f
+int $0x40
 movb $'e', %al
-lcall $2 * 8, $0x4c1f
+int $0x40
 movb $'l', %al
-lcall $2 * 8, $0x4c1f
+int $0x40
 movb $'l', %al
-lcall $2 * 8, $0x4c1f
+int $0x40
 movb $'o', %al
-lcall $2 * 8, $0x4c1f
+int $0x40
 
 lret
