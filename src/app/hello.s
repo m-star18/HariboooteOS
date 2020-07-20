@@ -1,6 +1,7 @@
 .arch i486
 
 movl $msg, %ecx
+movl $1, %edx
 
 putloop:
     movb %cs: (%ecx), %al

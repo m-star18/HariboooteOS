@@ -69,7 +69,7 @@ void store_cr0(int cr0);
 void load_tr(int tr);
 void farjmp(int eip, int cs);
 void farcall(int eip, int cs);
-void asm_cons_putchar(void);
+void asm_hrb_api(void);
 
 //dsctbl.c
 #define ADR_IDT 0x0026f800
@@ -374,6 +374,9 @@ void cmd_cls(struct CONSOLE *cons);
 void cmd_dir(struct CONSOLE *cons);
 void cmd_type(struct CONSOLE *cons, int *fat, char *cmdline);
 int cmd_app(struct CONSOLE *cons, int *fat, char *cmdline);
+void cons_putstr0(struct CONSOLE *cons, char *s);
+void cons_putstr1(struct CONSOLE *cons, char *s, int l);
+void hrb_api(int edi, int esi, int ebp, int esp, int ebx, int edx, int ecx, int eax);
 
 //window.c
 void make_window8(unsigned char *buf, int xsize, int ysize, char *title, char act);

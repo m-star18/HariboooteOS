@@ -13,12 +13,11 @@
 .global asm_inthandler21, asm_inthandler2c, asm_inthandler27, asm_inthandler20
 .global memtest_sub
 
-.global asm_cons_putchar
+.global asm_hrb_api
 .global farcall
 
 .extern inthandler21, inthandler2c, inthandler27, inthandler20
-
-.extern cons_putchar
+.extern hrb_api
 
 #void io_htl(void)
 io_hlt:
@@ -235,18 +234,15 @@ mts_fin:
     pop %edi
     ret
 
-asm_cons_putchar:
-    sti
-    pusha
-    and $0x000000ff, %eax
-    push $1
-    push %eax
-    push (0x0fec)
-    call cons_putchar
-    addl $12, %esp
-    popa
-    iret
-
 farcall:
     lcall 4(%esp)
     ret
+
+asm_hrb_api:
+    sti
+    pusha #保存のため
+    pusha #hrb_apiにわたすため
+    call hrb_api
+    add $32, %esp
+    popa
+    iret
