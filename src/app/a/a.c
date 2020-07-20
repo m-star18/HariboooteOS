@@ -1,4 +1,4 @@
-void api_putchar(int c);
+#include "haribooote.h"
 
 void HariMain(void) {
     api_putchar('A');
