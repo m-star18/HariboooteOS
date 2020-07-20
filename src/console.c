@@ -116,7 +116,7 @@ void cons_putchar(struct CONSOLE *cons, int chr, char move) {
         putfonts8_asc_sht(cons->sht, cons->cur_x, cons->cur_y, COL8_FFFFFF, COL8_000000, str, 1);
         if (move != 0) { //moveが0のときはカーソルを進めない
             cons->cur_x += 8;
-            if(cons->cur_x == 8 + 240)
+            if (cons->cur_x == 8 + 240)
                 cons_newline(cons);
         }
     }
@@ -135,7 +135,7 @@ void cons_newline(struct CONSOLE *cons) {
                 sheet->buf[x + y * sheet->bxsize] = sheet->buf[x + (y + 16) * sheet->bxsize];
         }
         for (y = 28 + 112; y < 28 + 128; y++) {
-            for(x = 8; x < 8 + 240; x++)
+            for (x = 8; x < 8 + 240; x++)
                 sheet->buf[x + y * sheet->bxsize] = COL8_000000;
         }
         sheet_refresh(sheet, 8, 28, 8 + 240, 28 + 128);
@@ -258,6 +258,7 @@ int cmd_app(struct CONSOLE *cons, int *fat, char *cmdline) {
 
     if (finfo != 0) {
         p = (char *) memman_alloc_4k(memman, finfo->size);
+        *((int *) 0xfe8) = (int) p;
         file_loadfile(finfo->clustno, finfo->size, p, fat, (char *) (ADR_DISKIMG + 0x003e00));
         set_segmdesc(gdt + 1003, finfo->size - 1, (int) p, AR_CODE32_ER);
         farcall(0, 1003 * (1 << 3));
@@ -281,14 +282,15 @@ void cons_putstr1(struct CONSOLE *cons, char *str, int l) {
 }
 
 void hrb_api(int edi, int esi, int ebp, int esp, int ebx, int edx, int ecx, int eax) {
+    int cs_base = *((int *) 0xfe8);
     struct CONSOLE *cons = (struct CONSOLE *) *((int *) 0xfec);
 
     if (edx == 1)
         cons_putchar(cons, eax & 0x000000ff, 1);
 
     else if (edx == 2)
-        cons_putstr0(cons, (char *) ebx);
+        cons_putstr0(cons, (char *) ebx + cs_base);
 
     else if (edx == 3)
-        cons_putstr1(cons, (char *) ebx, ecx);
+        cons_putstr1(cons, (char *) ebx + cs_base, ecx);
 }
