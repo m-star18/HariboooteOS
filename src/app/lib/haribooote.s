@@ -13,3 +13,9 @@ api_putchar:
     mov 4(%esp), %al
     int $0x40
     ret
+
+#void api_end(void)
+.global api_end
+api_end:
+    mov $4, %edx
+    int $0x40

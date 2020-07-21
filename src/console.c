@@ -237,6 +237,7 @@ int cmd_app(struct CONSOLE *cons, int *fat, char *cmdline) {
     struct MEMMAN *memman = (struct MEMMAN *) MEMMAN_ADDR;
     struct FILEINFO *finfo;
     struct SEGMENT_DESCRIPTOR *gdt = (struct SEGMENT_DESCRIPTOR *) ADR_GDT;
+    struct TASK *task = task_now();
 
     for (i = 0; i < 13; i++) {
         if (cmdline[i] <= ' ') break;
@@ -278,6 +279,7 @@ int cmd_app(struct CONSOLE *cons, int *fat, char *cmdline) {
         start_app(0, 1003 * 8, 64 * 1024, 1004 * 8);
 
         memman_free_4k(memman, (int) p, finfo->size);
+        memman_free_4k(memman, (int) q, 64 * 1024);
         cons_newline(cons);
         return 1;
     }
@@ -295,8 +297,9 @@ void cons_putstr1(struct CONSOLE *cons, char *str, int l) {
         cons_putchar(cons, str[i], 1);
 }
 
-void hrb_api(int edi, int esi, int ebp, int esp, int ebx, int edx, int ecx, int eax) {
+int *hrb_api(int edi, int esi, int ebp, int esp, int ebx, int edx, int ecx, int eax) {
     int cs_base = *((int *) 0xfe8);
+    struct TASK *task = task_now();
     struct CONSOLE *cons = (struct CONSOLE *) *((int *) 0xfec);
 
     if (edx == 1)
@@ -307,11 +310,18 @@ void hrb_api(int edi, int esi, int ebp, int esp, int ebx, int edx, int ecx, int 
 
     else if (edx == 3)
         cons_putstr1(cons, (char *) ebx + cs_base, ecx);
+
+    else if (edx == 4)
+        return &(task->tss.esp0);
+
+    return 0;
 }
 
-int inthandler0d(int *esp) {
+int *inthandler0d(int *esp) {
+    struct TASK *task = task_now();
     struct CONSOLE *cons = (struct CONSOLE *) *((int *) 0xfec);
 
     cons_putstr0(cons, "\nINT 0D : \n General Protected Exception.\n");
-    return 1; //異常終了
+    //異常終了
+    return &(task->tss.esp0);
 }
