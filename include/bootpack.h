@@ -70,6 +70,8 @@ void load_tr(int tr);
 void farjmp(int eip, int cs);
 void farcall(int eip, int cs);
 void asm_hrb_api(void);
+void hrb_api(int edi, int esi, int ebp, int esp, int ebx, int edx, int ecx, int eax);
+void start_app(int eip, int cs, int esp, int ds);
 
 //dsctbl.c
 #define ADR_IDT 0x0026f800

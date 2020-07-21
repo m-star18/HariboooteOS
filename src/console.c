@@ -231,6 +231,7 @@ void cmd_type(struct CONSOLE *cons, int *fat, char *cmdline) {
 int cmd_app(struct CONSOLE *cons, int *fat, char *cmdline) {
     int i;
     char *p;
+    char *q;
     char name[18];
 
     struct MEMMAN *memman = (struct MEMMAN *) MEMMAN_ADDR;
@@ -258,9 +259,13 @@ int cmd_app(struct CONSOLE *cons, int *fat, char *cmdline) {
 
     if (finfo != 0) {
         p = (char *) memman_alloc_4k(memman, finfo->size);
+        q = (char *) memman_alloc_4k(memman, 64 * 1024);
         *((int *) 0xfe8) = (int) p;
         file_loadfile(finfo->clustno, finfo->size, p, fat, (char *) (ADR_DISKIMG + 0x003e00));
         set_segmdesc(gdt + 1003, finfo->size - 1, (int) p, AR_CODE32_ER);
+        set_segmdesc(gdt + 1004,  64 * 1024 - 1, (int) q, AR_DATA32_RW);
+
+        //シグネチャのチェックと、mainを呼び出すように書き換え
         if (finfo->size >= 8 && _strncmp(p + 4, "Hari", 4) == 0) {
             p[0] = 0xe8;
             p[1] = 0x16;
@@ -270,7 +275,7 @@ int cmd_app(struct CONSOLE *cons, int *fat, char *cmdline) {
             p[5] = 0xcb;
         }
 
-        farcall(0, 1003 * (1 << 3));
+        start_app(0, 1003 * 8, 64 * 1024, 1004 * 8);
 
         memman_free_4k(memman, (int) p, finfo->size);
         cons_newline(cons);

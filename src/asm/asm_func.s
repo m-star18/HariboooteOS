@@ -15,6 +15,7 @@
 
 .global asm_hrb_api
 .global farcall
+.global start_app
 
 .extern inthandler21, inthandler2c, inthandler27, inthandler20
 .extern hrb_api
@@ -134,31 +135,80 @@ asm_inthandler21:
     push %es
     push %ds
     pusha
+    movw %ss, %ax
+    cmpw $1 * 8, %ax
+    jne from_app21
+    #osが動いてるときに割り込まれたので今までどおり
     movl %esp, %eax
-    pushl %eax
+    push %ss #割り込まれたときのssを保存(これいる？)
+    push %eax #割り込まれたときのespを保存
     movw %ss, %ax
     movw %ax, %ds
     movw %ax, %es
     call inthandler21
-    popl %eax
+    add $8, %esp
     popa
     pop %ds
     pop %es
     iret
-    #es, ds, ssを同じ値に揃えるのは、「C言語ではこれらが同じセグメントを指していると思いこむため」らしい
+
+from_app21:
+    movl $1 * 8, %eax
+    movw %ax, %ds #DSをOS用に
+    movl (0xfe4), %ecx #OS用ESP
+    addl $-8, %ecx
+    movw %ss, 4(%ecx) #割り込まれたときのssを保存
+    movl %esp, (%ecx) #割り込まれたときのespを保存
+    movw %ax, %ss
+    movw %ax, %es
+    movl %ecx, %esp
+    call inthandler21
+    pop %ecx
+    pop %eax
+    movw %ax, %ss
+    movl %ecx, %esp
+    popa
+    pop %ds
+    pop %es
+    iret
 
 #void asm_inthandler2c(void)
 asm_inthandler2c:
     push %es
     push %ds
     pusha
-    mov %esp, %eax
-    push %eax
+    movw %ss, %ax
+    cmpw $1 * 8, %ax
+    #jne from_app2c
+    #osが動いてるときに割り込まれたので今までどおり
+    movl %esp, %eax
+    push %ss #割り込まれたときのssを保存(これいる？)
+    push %eax #割り込まれたときのespを保存
     movw %ss, %ax
     movw %ax, %ds
     movw %ax, %es
     call inthandler2c
-    popl %eax
+    add $8, %esp
+    popa
+    pop %ds
+    pop %es
+    iret
+
+from_app2c:
+    movl $1 * 8, %eax
+    movw %ax, %ds #DSをOS用に
+    movl (0xfe4), %ecx #OS用ESP
+    addl $-8, %ecx
+    movw %ss, 4(%ecx) #割り込まれたときのssを保存
+    movl %esp, (%ecx) #割り込まれたときのespを保存
+    movw %ax, %ss
+    movw %ax, %es
+    movl %ecx, %esp
+    call inthandler2c
+    pop %ecx
+    pop %eax
+    movw %ax, %ss
+    movl %ecx, %esp
     popa
     pop %ds
     pop %es
@@ -169,13 +219,39 @@ asm_inthandler27:
     push %es
     push %ds
     pusha
-    mov %esp, %eax
-    push %eax
+    movw %ss, %ax
+    cmpw $1 * 8, %ax
+    jne from_app27
+
+    #osが動いてるときに割り込まれたので今までどおり
+    movl %esp, %eax
+    push %ss #割り込まれたときのssを保存(これいる？)
+    push %eax #割り込まれたときのespを保存
     movw %ss, %ax
     movw %ax, %ds
     movw %ax, %es
     call inthandler27
-    popl %eax
+    add $8, %esp
+    popa
+    pop %ds
+    pop %es
+    iret
+
+from_app27:
+    movl $1 * 8, %eax
+    movw %ax, %ds #DSをOS用に
+    movl (0xfe4), %ecx #OS用ESP
+    addl $-8, %ecx
+    movw %ss, 4(%ecx) #割り込まれたときのssを保存
+    movl %esp, (%ecx) #割り込まれたときのespを保存
+    movw %ax, %ss
+    movw %ax, %es
+    movl %ecx, %esp
+    call inthandler27
+    pop %ecx
+    pop %eax
+    movw %ax, %ss
+    movl %ecx, %esp
     popa
     pop %ds
     pop %es
@@ -186,13 +262,39 @@ asm_inthandler20:
     push %es
     push %ds
     pusha
-    mov %esp, %eax
-    push %eax
+    movw %ss, %ax
+    cmpw $1 * 8, %ax
+    jne from_app20
+
+    #osが動いてるときに割り込まれたので今までどおり
+    movl %esp, %eax
+    push %ss #割り込まれたときのssを保存
+    push %eax #割り込まれたときのespを保存
     movw %ss, %ax
     movw %ax, %ds
     movw %ax, %es
     call inthandler20
-    popl %eax
+    add $8, %esp
+    popa
+    pop %ds
+    pop %es
+    iret
+
+from_app20:
+    movl $1 * 8, %eax
+    movw %ax, %ds #DSをOS用に
+    movl (0xfe4), %ecx #OS用ESP
+    addl $-8, %ecx
+    movw %ss, 4(%ecx) #割り込まれたときのssを保存
+    movl %esp, (%ecx) #割り込まれたときのespを保存
+    movw %ax, %ss
+    movw %ax, %es
+    movl %ecx, %esp
+    call inthandler20
+    pop %ecx
+    pop %eax
+    movw %ax, %ss
+    movl %ecx, %esp
     popa
     pop %ds
     pop %es
@@ -234,15 +336,107 @@ mts_fin:
     pop %edi
     ret
 
+#void farcall(int eip, int cs);
 farcall:
-    lcall 4(%esp)
+    lcall *4(%esp)
     ret
 
+#void hrb_api(int edi, int esi, int ebp, int esp, int ebx, int edx, int ecx, int eax)
 asm_hrb_api:
+    #cliされている
+    push %ds
+    push %es
+    pusha #保存
+    movl $1 * 8, %eax
+    movw %ax, %ds #dsだけOS用に向ける
+    movl (0xfe4), %ecx #OS用のESP (DSがOS用なので、start_appで記録しておいたやつを読み込む)
+    add $-40, %ecx
+
+    #dsはOS用に向いている
+    #statr_appで保存したespを考えると、
+
+    movl %esp, 32(%ecx) #アプリ用のESPを保存
+    movw %ss, 36(%ecx) #アプリ用の用のSSを保存
+
+    #pushaした値をシステムのスタックにコピーする
+    #ssはアプリ、dsはOSを向いている
+    movl (%esp), %edx
+    movl 4(%esp), %ebx
+    movl %edx, (%ecx) #コピー
+    movl %ebx, 4(%ecx) #コピー
+
+    movl 8(%esp), %edx
+    movl 12(%esp), %ebx
+    movl %edx, 8(%ecx) #コピー
+    movl %ebx, 12(%ecx) #コピー
+
+    movl 16(%esp), %edx
+    movl 20(%esp), %ebx
+    movl %edx, 16(%ecx) #コピー
+    movl %ebx, 20(%ecx) #コピー
+
+    movl 24(%esp), %edx
+    movl 28(%esp), %ebx
+    movl %edx, 24(%ecx) #コピー
+    movl %ebx, 28(%ecx) #コピー
+
+    #残りのセグメントレジスタもOS用に向ける
+    movw %ax, %es
+    movw %ax, %ss
+    movl %ecx, %esp
+
     sti
-    pusha #保存のため
-    pusha #hrb_apiにわたすため
+
     call hrb_api
-    add $32, %esp
+
+    #espとssを戻すために読み込み
+    movl 32(%esp), %ecx
+    movl 36(%esp), %eax
+    cli
+    #戻す
+    movw %ax, %ss
+    movl %ecx, %esp
     popa
-    iret
+    pop %es
+    pop %ds
+    iret #自動でstiもやってくれる
+
+#start_app(int eip, int cs, int esp, int ds)
+start_app:
+    pusha #レジスタ保存
+
+    # pushaでレジスタ8個が積まれる
+    # 8 * 4 = 32 byte分デクリメントされている
+    # 一番左の引数(eip)は 32 + 4 = 36(%esp)にある
+    movl 36(%esp), %eax #アプリのEIP
+    movl 40(%esp), %ecx #アプリのCS
+    movl 44(%esp), %edx #アプリのESP
+    movl 48(%esp), %ebx #アプリのDS/SS
+
+    movl %esp, (0xfe4) #OSのESP(戻ってきたときに使うために保存)
+    cli #切り替え中に割り込みが起きないようにする
+
+    movw %bx, %es
+    movw %bx, %ss
+    movw %bx, %ds
+    movw %bx, %fs
+    movw %bx, %gs
+    movl %edx, %esp
+    sti
+    push %ecx #farcallに使う(cs)
+    push %eax #farcallに使う(eip)
+    lcall *(%esp)
+
+    #OS用に戻す
+    movl $1 * 8, %eax
+    cli
+    movw %ax, %es
+    movw %ax, %ss
+    movw %ax, %ds
+    movw %ax, %fs
+    movw %ax, %gs
+    movl (0xfe4), %esp
+    sti
+
+    popa
+    ret
