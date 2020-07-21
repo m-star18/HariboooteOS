@@ -10,14 +10,14 @@
 .global load_tr
 .global farjmp
 .global load_cr0, store_cr0
-.global asm_inthandler21, asm_inthandler2c, asm_inthandler27, asm_inthandler20
+.global asm_inthandler0d, asm_inthandler21, asm_inthandler2c, asm_inthandler27, asm_inthandler20
 .global memtest_sub
 
 .global asm_hrb_api
 .global farcall
 .global start_app
 
-.extern inthandler21, inthandler2c, inthandler27, inthandler20
+.extern inthandler0d, inthandler21, inthandler2c, inthandler27, inthandler20
 .extern hrb_api
 
 #void io_htl(void)
@@ -129,6 +129,68 @@ store_cr0:
     movl 4(%esp), %eax
     movl %eax, %cr0
     ret
+
+#void asm_inthandler0d(void)
+asm_inthandler0d:
+    sti
+    push %es
+    push %ds
+    pusha
+    movw %ss, %ax
+    cmpw $1 * 8, %ax
+    jne from_app0d
+
+    #osが動いてるときに割り込まれたので今までどおり
+    movl %esp, %eax
+    push %ss #割り込まれたときのssを保存
+    push %eax #割り込まれたときのespを保存
+    movw %ss, %ax
+    movw %ax, %ds
+    movw %ax, %es
+    call inthandler0d
+    add $8, %esp
+    popa
+    pop %ds
+    pop %es
+    iret
+
+from_app0d:
+    cli
+    movl $1 * 8, %eax
+    movw %ax, %ds #DSをOS用に
+    movl (0xfe4), %ecx #OS用ESP
+    addl $-8, %ecx
+    movw %ss, 4(%ecx) #割り込まれたときのssを保存
+    movl %esp, (%ecx) #割り込まれたときのespを保存
+    movw %ax, %ss
+    movw %ax, %es
+    movl %ecx, %esp
+    sti
+    call inthandler0d
+    cli
+    cmpl $0, %eax
+    jne kill
+    pop %ecx
+    pop %eax
+    movw %ax, %ss
+    movl %ecx, %esp
+    popa
+    pop %ds
+    pop %es
+    addl $4, %esp #int 0x0dではいるらしい
+    iret
+
+kill: #アプリ異常終了
+    movl $1 * 8, %eax
+    movw %ax, %es
+    movw %ax, %ss
+    movw %ax, %ds
+    movw %ax, %fs
+    movw %ax, %gs
+    movl (0xfe4), %esp #start_appのときのespに戻す
+    sti
+    popa
+    ret #ここはiretじゃなくてretで良いらしい(P435)
 
 #void asm_inthandler21(void)
 asm_inthandler21:
