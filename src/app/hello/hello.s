@@ -12,7 +12,9 @@ putloop:
     jmp putloop
 
 fin:
-    lret
+    #終了
+    mov $4, %edx
+    int $0x40
 
 msg:
     .string "hello"

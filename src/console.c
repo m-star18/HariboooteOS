@@ -231,11 +231,13 @@ void cmd_type(struct CONSOLE *cons, int *fat, char *cmdline) {
 int cmd_app(struct CONSOLE *cons, int *fat, char *cmdline) {
     int i;
     char *p;
+    char *q;
     char name[18];
 
     struct MEMMAN *memman = (struct MEMMAN *) MEMMAN_ADDR;
     struct FILEINFO *finfo;
     struct SEGMENT_DESCRIPTOR *gdt = (struct SEGMENT_DESCRIPTOR *) ADR_GDT;
+    struct TASK *task = task_now();
 
     for (i = 0; i < 13; i++) {
         if (cmdline[i] <= ' ') break;
@@ -258,9 +260,13 @@ int cmd_app(struct CONSOLE *cons, int *fat, char *cmdline) {
 
     if (finfo != 0) {
         p = (char *) memman_alloc_4k(memman, finfo->size);
+        q = (char *) memman_alloc_4k(memman, 64 * 1024);
         *((int *) 0xfe8) = (int) p;
         file_loadfile(finfo->clustno, finfo->size, p, fat, (char *) (ADR_DISKIMG + 0x003e00));
         set_segmdesc(gdt + 1003, finfo->size - 1, (int) p, AR_CODE32_ER);
+        set_segmdesc(gdt + 1004,  64 * 1024 - 1, (int) q, AR_DATA32_RW);
+
+        //シグネチャのチェックと、mainを呼び出すように書き換え
         if (finfo->size >= 8 && _strncmp(p + 4, "Hari", 4) == 0) {
             p[0] = 0xe8;
             p[1] = 0x16;
@@ -270,9 +276,10 @@ int cmd_app(struct CONSOLE *cons, int *fat, char *cmdline) {
             p[5] = 0xcb;
         }
 
-        farcall(0, 1003 * (1 << 3));
+        start_app(0, 1003 * 8, 64 * 1024, 1004 * 8);
 
         memman_free_4k(memman, (int) p, finfo->size);
+        memman_free_4k(memman, (int) q, 64 * 1024);
         cons_newline(cons);
         return 1;
     }
@@ -290,8 +297,9 @@ void cons_putstr1(struct CONSOLE *cons, char *str, int l) {
         cons_putchar(cons, str[i], 1);
 }
 
-void hrb_api(int edi, int esi, int ebp, int esp, int ebx, int edx, int ecx, int eax) {
+int *hrb_api(int edi, int esi, int ebp, int esp, int ebx, int edx, int ecx, int eax) {
     int cs_base = *((int *) 0xfe8);
+    struct TASK *task = task_now();
     struct CONSOLE *cons = (struct CONSOLE *) *((int *) 0xfec);
 
     if (edx == 1)
@@ -302,4 +310,18 @@ void hrb_api(int edi, int esi, int ebp, int esp, int ebx, int edx, int ecx, int 
 
     else if (edx == 3)
         cons_putstr1(cons, (char *) ebx + cs_base, ecx);
+
+    else if (edx == 4)
+        return &(task->tss.esp0);
+
+    return 0;
+}
+
+int *inthandler0d(int *esp) {
+    struct TASK *task = task_now();
+    struct CONSOLE *cons = (struct CONSOLE *) *((int *) 0xfec);
+
+    cons_putstr0(cons, "\nINT 0D : \n General Protected Exception.\n");
+    //異常終了
+    return &(task->tss.esp0);
 }

@@ -10,13 +10,14 @@
 .global load_tr
 .global farjmp
 .global load_cr0, store_cr0
-.global asm_inthandler21, asm_inthandler2c, asm_inthandler27, asm_inthandler20
+.global asm_inthandler0d, asm_inthandler21, asm_inthandler2c, asm_inthandler27, asm_inthandler20
 .global memtest_sub
 
 .global asm_hrb_api
 .global farcall
+.global start_app
 
-.extern inthandler21, inthandler2c, inthandler27, inthandler20
+.extern inthandler0d, inthandler21, inthandler2c, inthandler27, inthandler20
 .extern hrb_api
 
 #void io_htl(void)
@@ -129,6 +130,27 @@ store_cr0:
     movl %eax, %cr0
     ret
 
+#void asm_inthandler0d(void)
+asm_inthandler0d:
+    sti
+    push %es
+    push %ds
+    pusha
+    movl %esp, %eax
+    push %eax #espを記録しておく
+    movw %ss, %ax #ds, esを揃える
+    movw %ax, %ds
+    movw %ax, %es
+    call inthandler0d
+    cmpl $0, %eax
+    jne end_app
+    pop %eax
+    popa
+    pop %ds
+    pop %es
+    add $4, %esp #INT 0dではこれが必要
+    iret
+
 #void asm_inthandler21(void)
 asm_inthandler21:
     push %es
@@ -145,7 +167,6 @@ asm_inthandler21:
     pop %ds
     pop %es
     iret
-    #es, ds, ssを同じ値に揃えるのは、「C言語ではこれらが同じセグメントを指していると思いこむため」らしい
 
 #void asm_inthandler2c(void)
 asm_inthandler2c:
@@ -234,15 +255,73 @@ mts_fin:
     pop %edi
     ret
 
+#void farcall(int eip, int cs);
 farcall:
-    lcall 4(%esp)
+    lcall *4(%esp)
     ret
 
+#void hrb_api(int edi, int esi, int ebp, int esp, int ebx, int edx, int ecx, int eax)
 asm_hrb_api:
     sti
-    pusha #保存のため
-    pusha #hrb_apiにわたすため
+    push %ds
+    push %es
+    pusha #保存
+    pusha #hrb_apiに渡す用
+    mov %ss, %ax #dsとesも揃える（必要？）
+    mov %ax, %ds
+    mov %ax, %es
     call hrb_api
-    add $32, %esp
-    popa
+    cmpl $0, %eax #戻り値チェック
+    jne end_app #0じゃなかったら終了する
+    addl $32, %esp #pusha積んだ分を戻す
+    popa #保存しておいたものを戻す
+    pop %es
+    pop %ds
     iret
+
+end_app:
+    #eaxはtss.esp0の番地
+    mov (%eax), %esp
+    popa
+    ret #cmd_appに戻る
+
+#void start_app(int eip, int cs, int esp, int ds, int *tss_esp0)
+start_app:
+    pusha #レジスタ保存
+
+    # pushaでレジスタ8個が積まれる
+    # 8 * 4 = 32 byte分デクリメントされている
+    # 一番左の引数(eip)は 32 + 4 = 36(%esp)にある
+    movl 36(%esp), %eax #アプリのEIP
+    movl 40(%esp), %ecx #アプリのCS
+    movl 44(%esp), %edx #アプリのESP
+    movl 48(%esp), %ebx #アプリのDS/SS
+    movl 52(%esp), %ebp #tss.esp0の番地
+    movl %esp, (%ebp) #OSのESPを保存(OSのtss.esp0に保存している)
+    movw %ss, 4(%ebp) #OS用のSSを保存(tss.ss0に保存している)
+
+    movw %bx, %es
+    movw %bx, %ds
+    movw %bx, %fs
+    movw %bx, %gs
+
+    #retfでアプリに飛ぶためにスタック調整
+    #x86ではOSがアプリにcall/jmpしてはいけないことになっているらしい
+    #なので、アプリの番地をpushしておいてlretで飛ぶ(P438)
+    orl $3, %ecx #CS アプリのセグメント番号にorする（こういうものらしい？RPLとかいうやつ？）
+    orl $3, %ebx #DS/SS アプリのセグメント番号にorする
+
+    #以下をpushするのは特権レベルが違うセグメント間ではこうする必要がある？
+    #lretは以下のような動作をする命令らしいので、ecx(アプリのcsを記録してる), eax(アプリのeipを記録している)をpushしている
+    #pop %eip
+    #pop %cs
+    #jmp %cs:(%eip)
+    #また、特権レベルが違うセグメント間でのジャンプでは、espとssも必要になるらしい
+    #参考 : http://bttb.s1.valueserver.jp/wordpress/blog/2018/02/26/makeos-22/
+
+    push %ebx #アプリのss
+    push %edx #アプリのesp
+    push %ecx #アプリのcs
+    push %eax #アプリのeip
+
+    lret

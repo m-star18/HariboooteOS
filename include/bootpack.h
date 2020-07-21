@@ -60,6 +60,7 @@ void io_out8(int port, int data);
 int io_in8(int port);
 int io_load_eflags(void);
 void io_store_eflags(int eflags);
+void asm_inthandler0d(void);
 void asm_inthandler21(void);
 void asm_inthandler2c(void);
 void asm_inthandler27(void);
@@ -70,6 +71,7 @@ void load_tr(int tr);
 void farjmp(int eip, int cs);
 void farcall(int eip, int cs);
 void asm_hrb_api(void);
+void start_app(int eip, int cs, int esp, int ds);
 
 //dsctbl.c
 #define ADR_IDT 0x0026f800
@@ -376,7 +378,8 @@ void cmd_type(struct CONSOLE *cons, int *fat, char *cmdline);
 int cmd_app(struct CONSOLE *cons, int *fat, char *cmdline);
 void cons_putstr0(struct CONSOLE *cons, char *s);
 void cons_putstr1(struct CONSOLE *cons, char *s, int l);
-void hrb_api(int edi, int esi, int ebp, int esp, int ebx, int edx, int ecx, int eax);
+int *hrb_api(int edi, int esi, int ebp, int esp, int ebx, int edx, int ecx, int eax);
+int *inthandler0d(int *esp);
 
 //window.c
 void make_window8(unsigned char *buf, int xsize, int ysize, char *title, char act);
