@@ -60,6 +60,7 @@ void io_out8(int port, int data);
 int io_in8(int port);
 int io_load_eflags(void);
 void io_store_eflags(int eflags);
+void asm_inthandler0c(void);
 void asm_inthandler0d(void);
 void asm_inthandler21(void);
 void asm_inthandler2c(void);
@@ -71,7 +72,7 @@ void load_tr(int tr);
 void farjmp(int eip, int cs);
 void farcall(int eip, int cs);
 void asm_hrb_api(void);
-void start_app(int eip, int cs, int esp, int ds);
+void start_app(int eip, int cs, int esp, int ds, int *tss_esp0);
 
 //dsctbl.c
 #define ADR_IDT 0x0026f800

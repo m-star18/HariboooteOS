@@ -263,8 +263,9 @@ int cmd_app(struct CONSOLE *cons, int *fat, char *cmdline) {
         q = (char *) memman_alloc_4k(memman, 64 * 1024);
         *((int *) 0xfe8) = (int) p;
         file_loadfile(finfo->clustno, finfo->size, p, fat, (char *) (ADR_DISKIMG + 0x003e00));
-        set_segmdesc(gdt + 1003, finfo->size - 1, (int) p, AR_CODE32_ER);
-        set_segmdesc(gdt + 1004,  64 * 1024 - 1, (int) q, AR_DATA32_RW);
+        //権限を利用する
+        set_segmdesc(gdt + 1003, finfo->size - 1, (int) p, AR_CODE32_ER + 0x60);
+        set_segmdesc(gdt + 1004,  64 * 1024 - 1, (int) q, AR_DATA32_RW + 0x60);
 
         //シグネチャのチェックと、mainを呼び出すように書き換え
         if (finfo->size >= 8 && _strncmp(p + 4, "Hari", 4) == 0) {
@@ -276,14 +277,14 @@ int cmd_app(struct CONSOLE *cons, int *fat, char *cmdline) {
             p[5] = 0xcb;
         }
 
-        start_app(0, 1003 * 8, 64 * 1024, 1004 * 8);
+        //権限による制御を使う場合は、TSSにOS用のセグメントと、ESPを登録する必要がある(P438)
+        start_app(0, 1003 * 8, 64 * 1024, 1004 * 8, &(task->tss.esp0));
 
         memman_free_4k(memman, (int) p, finfo->size);
         memman_free_4k(memman, (int) q, 64 * 1024);
         cons_newline(cons);
         return 1;
     }
-
     return 0;
 }
 
@@ -314,17 +315,29 @@ int *hrb_api(int edi, int esi, int ebp, int esp, int ebx, int edx, int ecx, int 
     else if (edx == 4)
         return &(task->tss.esp0);
 
-    else if (edx == 123456789)
-        *((char *) 0x00102600) = 0;
-
     return 0;
 }
 
 int *inthandler0d(int *esp) {
     struct TASK *task = task_now();
     struct CONSOLE *cons = (struct CONSOLE *) *((int *) 0xfec);
+    char str[30];
 
     cons_putstr0(cons, "\nINT 0D : \n General Protected Exception.\n");
+    _sprintf(str, "EIP = %08X\n", esp[11]);
+    cons_putstr0(cons, str);
+    //異常終了
+    return &(task->tss.esp0);
+}
+
+int *inthandler0c(int *esp) {
+    struct TASK *task = task_now();
+    struct CONSOLE *cons = (struct CONSOLE *) *((int *) 0xfec);
+    char str[30];
+
+    cons_putstr0(cons, "\nINT 0C : \n Stack Exception.\n");
+    _sprintf(str, "EIP = %08X\n", esp[11]);
+    cons_putstr0(cons, str);
     //異常終了
     return &(task->tss.esp0);
 }

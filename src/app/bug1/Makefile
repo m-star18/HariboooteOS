@@ -11,16 +11,16 @@ LS = ../../../scripts/app.lds
 
 TARGET_DIR = ../../../bin/app
 DIST_DIR = $(TARGET_DIR)/dist
-TMP_DIR = $(TARGET_DIR)/tmp/crack1
+TMP_DIR = $(TARGET_DIR)/tmp/bug1
 
-APP = $(DIST_DIR)/crack1
-APP_SRC = crack1.c
+APP = $(DIST_DIR)/bug1
+APP_SRC = bug1.c
 
 $(APP): $(APP_SRC) $(LIB)
 	mkdir -p $(DIST_DIR)
 	mkdir -p $(TMP_DIR)
 	$(CC) -c $(CFLAGS) $(INCLUDE) -o $(TMP_DIR)/$(APP_SRC:.c=.o) $(APP_SRC)
-	ld $(LFLAGS) -o $(APP) --oformat=binary -e __start -T $(LS) $(LIB) $(TMP_DIR)/$(APP_SRC:.c=.o)
+	ld $(LFLAGS) -o $(APP) -Map=$(TMP_DIR)/$(APP_SRC:.c=.map) -e __start -T $(LS) $(LIB) $(TMP_DIR)/$(APP_SRC:.c=.o)
 
 $(LIB):
 	cd ../lib; make

@@ -10,14 +10,14 @@
 .global load_tr
 .global farjmp
 .global load_cr0, store_cr0
-.global asm_inthandler0d, asm_inthandler21, asm_inthandler2c, asm_inthandler27, asm_inthandler20
+.global asm_inthandler0c, asm_inthandler0d, asm_inthandler21, asm_inthandler2c, asm_inthandler27, asm_inthandler20
 .global memtest_sub
 
 .global asm_hrb_api
 .global farcall
 .global start_app
 
-.extern inthandler0d, inthandler21, inthandler2c, inthandler27, inthandler20
+.extern inthandler0c, inthandler0d, inthandler21, inthandler2c, inthandler27, inthandler20
 .extern hrb_api
 
 #void io_htl(void)
@@ -129,6 +129,27 @@ store_cr0:
     movl 4(%esp), %eax
     movl %eax, %cr0
     ret
+
+#void asm_inthandler0c(void)
+asm_inthandler0c:
+    sti
+    push %es
+    push %ds
+    pusha
+    movl %esp, %eax
+    push %eax #espを記録しておく
+    movw %ss, %ax #ds, esを揃える
+    movw %ax, %ds
+    movw %ax, %es
+    call inthandler0c
+    cmpl $0, %eax
+    jne end_app
+    pop %eax
+    popa
+    pop %ds
+    pop %es
+    add $4, %esp #INT 0cではこれが必要
+    iret
 
 #void asm_inthandler0d(void)
 asm_inthandler0d:
