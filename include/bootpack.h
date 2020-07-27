@@ -73,6 +73,7 @@ void farjmp(int eip, int cs);
 void farcall(int eip, int cs);
 void asm_hrb_api(void);
 void start_app(int eip, int cs, int esp, int ds, int *tss_esp0);
+extern void asm_end_app(void);
 
 //dsctbl.c
 #define ADR_IDT 0x0026f800

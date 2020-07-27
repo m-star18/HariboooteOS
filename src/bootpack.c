@@ -34,6 +34,8 @@ void HariMain(void) {
 
     struct TIMER *timer;
 
+    struct CONSOLE *cons;
+
     static char keytable0[] = {
         0, 0, '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '^', 0, 0,
         'Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', '@', '[', 0, 0, 'A', 'S',
@@ -272,6 +274,16 @@ void HariMain(void) {
                     key_leds ^= 1;
                     fifo32_put(&keycmd, KEYCMD_LED);
                     fifo32_put(&keycmd, key_leds);
+                }
+                if (i == 256 + 0x3b && key_shift != 0 && task_cons->tss.ss0 != 0) { //shift + F1
+                    cons = (struct CONSOLE *) *((int *) 0xfec);
+                    cons_putstr0(cons, "\nBreak(key) :\n");
+
+                    //レジスタ変更中にタスクが変わらないようにする
+                    io_cli();
+                    task_cons->tss.eax = (int) & (task_cons->tss.esp0);
+                    task_cons->tss.eip = (int) asm_end_app;
+                    io_sti();
                 }
                 if (i == 256 + 0xfa) //キーボードがデータを正しく受け取った
                     keycmd_wait = -1;
