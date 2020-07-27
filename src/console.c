@@ -325,21 +325,44 @@ void cons_putstr1(struct CONSOLE *cons, char *str, int l) {
 }
 
 int *hrb_api(int edi, int esi, int ebp, int esp, int ebx, int edx, int ecx, int eax) {
-    int cs_base = *((int *) 0xfe8);
+    int ds_base = *((int *) 0xfe8);
     struct TASK *task = task_now();
-    struct CONSOLE *cons = (struct CONSOLE *) *((int *) 0xfec);
+    struct CONSOLE *cons = (struct CONSOLE *) *((int *)0xfec);
+    struct SHTCTL *shtctl = (struct SHTCTL *) *((int *)0xfe4);
+    struct SHEET *sht;
+
+    int *reg = &eax + 1; //eaxの次の番地
+    //asm_hrb_apiでこの関数はcallされ、call前にpsuhaを2回やっている
+    //ここでは引数のeaxの次の番地(=1回目のpushadのedi)のアドレスを参照させる
+    //1回目のpushはレジスタを保存するためのpushなので、eaxにpopされるであろうreg[7]に値をセットするとasm_hrb_apiの戻り値になる（無理やり）
 
     if (edx == 1)
         cons_putchar(cons, eax & 0x000000ff, 1);
 
     else if (edx == 2)
-        cons_putstr0(cons, (char *) ebx + cs_base);
+        cons_putstr0(cons, (char *) ebx + ds_base);
 
     else if (edx == 3)
-        cons_putstr1(cons, (char *) ebx + cs_base, ecx);
+        cons_putstr1(cons, (char *) ebx + ds_base, ecx);
 
     else if (edx == 4)
         return &(task->tss.esp0);
+
+    else if (edx == 5) {
+        /*
+        ebx buf
+        esi xsiz
+        edi ysiz
+        eax col_in
+        ecx title
+        */
+        sht = sheet_alloc(shtctl);
+        sheet_setbuf(sht, (char *) ebx + ds_base, esi, edi, eax);
+        make_window8((char *) ebx + ds_base, esi, edi, (char *) ecx + ds_base, 0);
+        sheet_slide(sht, 100, 50);
+        sheet_updown(sht, 3);
+        reg[7] = (int) sht;
+    }
 
     return 0;
 }

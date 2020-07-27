@@ -103,6 +103,7 @@ void HariMain(void) {
 
     init_palette();
     shtctl = shtctl_init(memman, binfo->vram, binfo->scrnx, binfo->scrny);
+     *((int *) 0xfe4) = (int) shtctl;
 
     //back
     sht_back = sheet_alloc(shtctl);
