@@ -234,6 +234,13 @@ int cmd_app(struct CONSOLE *cons, int *fat, char *cmdline) {
     char *q;
     char name[18];
 
+    char str[128];
+
+    int segsiz;
+    int esp;
+    int datsiz;
+    int dathrb;
+
     struct MEMMAN *memman = (struct MEMMAN *) MEMMAN_ADDR;
     struct FILEINFO *finfo;
     struct SEGMENT_DESCRIPTOR *gdt = (struct SEGMENT_DESCRIPTOR *) ADR_GDT;
@@ -260,24 +267,48 @@ int cmd_app(struct CONSOLE *cons, int *fat, char *cmdline) {
 
     if (finfo != 0) {
         p = (char *) memman_alloc_4k(memman, finfo->size);
-        q = (char *) memman_alloc_4k(memman, 64 * 1024);
         *((int *) 0xfe8) = (int) p;
         file_loadfile(finfo->clustno, finfo->size, p, fat, (char *) (ADR_DISKIMG + 0x003e00));
-        //権限を利用する
-        set_segmdesc(gdt + 1003, finfo->size - 1, (int) p, AR_CODE32_ER + 0x60);
-        set_segmdesc(gdt + 1004,  64 * 1024 - 1, (int) q, AR_DATA32_RW + 0x60);
 
         //シグネチャのチェックと、mainを呼び出すように書き換え
-        if (finfo->size >= 8 && _strncmp(p + 4, "Hari", 4) == 0) {
+        if (finfo->size >= 36 && _strncmp(p + 4, "Hari", 4) == 0 && *p == 0x00) {
+
+            //ヘッダから読み取る
+            segsiz = *((int *) (p + 0x0000)); //データセグメントの大きさ
+            esp = *((int *) (p + 0x000c)); //初期esp, データ転送先の初期位置
+            datsiz = *((int *) (p + 0x0010)); //データセクションからデータセグメントにコピーする大きさ
+            dathrb = *((int *) (p + 0x0014)); //hrbファイル内のデータセクションの位置
+
+            _sprintf(str, "[debug] segsiz=0x%X, esp=0x%X\n[debug] datsiz=0x%x, dathrb=0x%x\n", segsiz, esp, datsiz, dathrb);
+            cons_putstr0(cons, str);
+
+            //データセグメントのサイズに基づいてメモリ確保
+            q = (char *) memman_alloc_4k(memman, segsiz);
+
+            //データセグメントを覚えておく(システムコールされたときにアプリケーションのデータのアクセスするのに必要)
+            *((int *) 0xfe8) = (int) q;
+
+            //0x60を足すのは、アプリのセグメントであるとあつかうため
+            //コードセグメント
+            set_segmdesc(gdt + 1003, finfo->size - 1, (int) p, AR_CODE32_ER + 0x60);
+            //データセグメント
+            set_segmdesc(gdt + 1004,  segsiz - 1, (int) q, AR_DATA32_RW + 0x60);
+
+            //データセクションからデータセグメントにコピー
+            for (i = 0; i < datsiz; i++)
+                q[esp + i] = p[dathrb + i];
+
             //権限による制御を使う場合は、TSSにOS用のセグメントと、ESPを登録する必要がある(P438)
-            start_app(0x1b, 1003 * 8, 64 * 1024, 1004 * 8, &(task->tss.esp0));
+            //0x1bから始めるのは、その位置(実際にはヘッダ内)に、mainへのjmp命令が埋め込まれてるから
+            start_app(0x1b, 1003 * 8, esp, 1004 * 8, &(task->tss.esp0));
+            memman_free_4k(memman, (int) q, segsiz);
 
         } else
-            start_app(0, 1003 * 8, 64 * 1024, 1004 * 8, &(task->tss.esp0));
+            cons_putstr0(cons, ".hrb file format error. \n");
 
         memman_free_4k(memman, (int) p, finfo->size);
-        memman_free_4k(memman, (int) q, 64 * 1024);
         cons_newline(cons);
+
         return 1;
     }
     return 0;
