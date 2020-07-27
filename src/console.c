@@ -362,6 +362,33 @@ int *hrb_api(int edi, int esi, int ebp, int esp, int ebx, int edx, int ecx, int 
         sheet_slide(sht, 100, 50);
         sheet_updown(sht, 3);
         reg[7] = (int) sht;
+
+    } else if (edx == 6) {
+        /*
+         * %ebx win
+         * %esi x
+         * %edi y
+         * %eax col
+         * %ecx len
+         * %ebp str
+         * */
+
+        sht = (struct SHEET *) ebx;
+        putfonts8_asc(sht->buf, sht->bxsize, esi, edi, eax, (char *) ebp + ds_base);
+        sheet_refresh(sht, esi, edi, esi + ecx * 8, edi + 16);
+
+    } else if (edx == 7) {
+        /*
+         * %ebx win
+         * %eax x0
+         * %ecx y0
+         * %esi x1
+         * %edi y1
+         * %ebp col
+         * */
+        sht = (struct SHEET *) ebx;
+        boxfill8(sht->buf, sht->bxsize, ebp, eax, ecx, esi, edi);
+        sheet_refresh(sht, eax, ecx, esi + 1, edi + 1);
     }
 
     return 0;
