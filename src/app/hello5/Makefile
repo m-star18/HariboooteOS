@@ -5,9 +5,9 @@ CFLAGS = -fno-pie -no-pie -nostdlib -m32 -fno-builtin -O0
 
 TARGET_DIR = ../../../bin/app
 DIST_DIR = $(TARGET_DIR)/dist
-TMP_DIR = $(TARGET_DIR)/tmp/crack2
-APP = $(DIST_DIR)/crack2
-APP_SRC = crack2.s
+TMP_DIR = $(TARGET_DIR)/tmp/hello5
+APP = $(DIST_DIR)/hello5
+APP_SRC = hello5.s
 
 $(APP): $(APP_SRC)
 	mkdir -p $(DIST_DIR)

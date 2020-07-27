@@ -234,6 +234,13 @@ int cmd_app(struct CONSOLE *cons, int *fat, char *cmdline) {
     char *q;
     char name[18];
 
+    char str[128];
+
+    int segsiz;
+    int esp;
+    int datsiz;
+    int dathrb;
+
     struct MEMMAN *memman = (struct MEMMAN *) MEMMAN_ADDR;
     struct FILEINFO *finfo;
     struct SEGMENT_DESCRIPTOR *gdt = (struct SEGMENT_DESCRIPTOR *) ADR_GDT;
@@ -260,30 +267,50 @@ int cmd_app(struct CONSOLE *cons, int *fat, char *cmdline) {
 
     if (finfo != 0) {
         p = (char *) memman_alloc_4k(memman, finfo->size);
-        q = (char *) memman_alloc_4k(memman, 64 * 1024);
         *((int *) 0xfe8) = (int) p;
         file_loadfile(finfo->clustno, finfo->size, p, fat, (char *) (ADR_DISKIMG + 0x003e00));
-        set_segmdesc(gdt + 1003, finfo->size - 1, (int) p, AR_CODE32_ER);
-        set_segmdesc(gdt + 1004,  64 * 1024 - 1, (int) q, AR_DATA32_RW);
 
         //シグネチャのチェックと、mainを呼び出すように書き換え
-        if (finfo->size >= 8 && _strncmp(p + 4, "Hari", 4) == 0) {
-            p[0] = 0xe8;
-            p[1] = 0x16;
-            p[2] = 0x00;
-            p[3] = 0x00;
-            p[4] = 0x00;
-            p[5] = 0xcb;
-        }
+        if (finfo->size >= 36 && _strncmp(p + 4, "Hari", 4) == 0 && *p == 0x00) {
 
-        start_app(0, 1003 * 8, 64 * 1024, 1004 * 8);
+            //ヘッダから読み取る
+            segsiz = *((int *) (p + 0x0000)); //データセグメントの大きさ
+            esp = *((int *) (p + 0x000c)); //初期esp, データ転送先の初期位置
+            datsiz = *((int *) (p + 0x0010)); //データセクションからデータセグメントにコピーする大きさ
+            dathrb = *((int *) (p + 0x0014)); //hrbファイル内のデータセクションの位置
+
+            _sprintf(str, "[debug] segsiz=0x%X, esp=0x%X\n[debug] datsiz=0x%x, dathrb=0x%x\n", segsiz, esp, datsiz, dathrb);
+            cons_putstr0(cons, str);
+
+            //データセグメントのサイズに基づいてメモリ確保
+            q = (char *) memman_alloc_4k(memman, segsiz);
+
+            //データセグメントを覚えておく(システムコールされたときにアプリケーションのデータのアクセスするのに必要)
+            *((int *) 0xfe8) = (int) q;
+
+            //0x60を足すのは、アプリのセグメントであるとあつかうため
+            //コードセグメント
+            set_segmdesc(gdt + 1003, finfo->size - 1, (int) p, AR_CODE32_ER + 0x60);
+            //データセグメント
+            set_segmdesc(gdt + 1004,  segsiz - 1, (int) q, AR_DATA32_RW + 0x60);
+
+            //データセクションからデータセグメントにコピー
+            for (i = 0; i < datsiz; i++)
+                q[esp + i] = p[dathrb + i];
+
+            //権限による制御を使う場合は、TSSにOS用のセグメントと、ESPを登録する必要がある(P438)
+            //0x1bから始めるのは、その位置(実際にはヘッダ内)に、mainへのjmp命令が埋め込まれてるから
+            start_app(0x1b, 1003 * 8, esp, 1004 * 8, &(task->tss.esp0));
+            memman_free_4k(memman, (int) q, segsiz);
+
+        } else
+            cons_putstr0(cons, ".hrb file format error. \n");
 
         memman_free_4k(memman, (int) p, finfo->size);
-        memman_free_4k(memman, (int) q, 64 * 1024);
         cons_newline(cons);
+
         return 1;
     }
-
     return 0;
 }
 
@@ -298,21 +325,71 @@ void cons_putstr1(struct CONSOLE *cons, char *str, int l) {
 }
 
 int *hrb_api(int edi, int esi, int ebp, int esp, int ebx, int edx, int ecx, int eax) {
-    int cs_base = *((int *) 0xfe8);
+    int ds_base = *((int *) 0xfe8);
     struct TASK *task = task_now();
-    struct CONSOLE *cons = (struct CONSOLE *) *((int *) 0xfec);
+    struct CONSOLE *cons = (struct CONSOLE *) *((int *)0xfec);
+    struct SHTCTL *shtctl = (struct SHTCTL *) *((int *)0xfe4);
+    struct SHEET *sht;
+
+    int *reg = &eax + 1; //eaxの次の番地
+    //asm_hrb_apiでこの関数はcallされ、call前にpsuhaを2回やっている
+    //ここでは引数のeaxの次の番地(=1回目のpushadのedi)のアドレスを参照させる
+    //1回目のpushはレジスタを保存するためのpushなので、eaxにpopされるであろうreg[7]に値をセットするとasm_hrb_apiの戻り値になる（無理やり）
 
     if (edx == 1)
         cons_putchar(cons, eax & 0x000000ff, 1);
 
     else if (edx == 2)
-        cons_putstr0(cons, (char *) ebx + cs_base);
+        cons_putstr0(cons, (char *) ebx + ds_base);
 
     else if (edx == 3)
-        cons_putstr1(cons, (char *) ebx + cs_base, ecx);
+        cons_putstr1(cons, (char *) ebx + ds_base, ecx);
 
     else if (edx == 4)
         return &(task->tss.esp0);
+
+    else if (edx == 5) {
+        /*
+        ebx buf
+        esi xsiz
+        edi ysiz
+        eax col_in
+        ecx title
+        */
+        sht = sheet_alloc(shtctl);
+        sheet_setbuf(sht, (char *) ebx + ds_base, esi, edi, eax);
+        make_window8((char *) ebx + ds_base, esi, edi, (char *) ecx + ds_base, 0);
+        sheet_slide(sht, 100, 50);
+        sheet_updown(sht, 3);
+        reg[7] = (int) sht;
+
+    } else if (edx == 6) {
+        /*
+         * %ebx win
+         * %esi x
+         * %edi y
+         * %eax col
+         * %ecx len
+         * %ebp str
+         * */
+
+        sht = (struct SHEET *) ebx;
+        putfonts8_asc(sht->buf, sht->bxsize, esi, edi, eax, (char *) ebp + ds_base);
+        sheet_refresh(sht, esi, edi, esi + ecx * 8, edi + 16);
+
+    } else if (edx == 7) {
+        /*
+         * %ebx win
+         * %eax x0
+         * %ecx y0
+         * %esi x1
+         * %edi y1
+         * %ebp col
+         * */
+        sht = (struct SHEET *) ebx;
+        boxfill8(sht->buf, sht->bxsize, ebp, eax, ecx, esi, edi);
+        sheet_refresh(sht, eax, ecx, esi + 1, edi + 1);
+    }
 
     return 0;
 }
@@ -320,8 +397,23 @@ int *hrb_api(int edi, int esi, int ebp, int esp, int ebx, int edx, int ecx, int 
 int *inthandler0d(int *esp) {
     struct TASK *task = task_now();
     struct CONSOLE *cons = (struct CONSOLE *) *((int *) 0xfec);
+    char str[30];
 
     cons_putstr0(cons, "\nINT 0D : \n General Protected Exception.\n");
+    _sprintf(str, "EIP = %08X\n", esp[11]);
+    cons_putstr0(cons, str);
+    //異常終了
+    return &(task->tss.esp0);
+}
+
+int *inthandler0c(int *esp) {
+    struct TASK *task = task_now();
+    struct CONSOLE *cons = (struct CONSOLE *) *((int *) 0xfec);
+    char str[30];
+
+    cons_putstr0(cons, "\nINT 0C : \n Stack Exception.\n");
+    _sprintf(str, "EIP = %08X\n", esp[11]);
+    cons_putstr0(cons, str);
     //異常終了
     return &(task->tss.esp0);
 }

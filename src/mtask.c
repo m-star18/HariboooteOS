@@ -9,6 +9,7 @@ struct TASK *task_init(struct MEMMAN *memman) {
     struct TASK *idle;
     struct SEGMENT_DESCRIPTOR *gdt = (struct SEGMENT_DESCRIPTOR *) ADR_GDT;
     taskctl = (struct TASKCTL *) memman_alloc_4k(memman, sizeof(struct TASKCTL));
+
     for (i = 0; i < MAX_TASKS; i++) {
         taskctl->tasks0[i].flags = 0;
         taskctl->tasks0[i].sel = (TASK_GDT0 + i) * 8;
@@ -67,6 +68,7 @@ struct TASK *task_alloc(void) {
             task->tss.gs = 0;
             task->tss.ldtr = 0;
             task->tss.iomap = 0x40000000;
+            task->tss.ss0 = 0;
 
             return task;
         }
