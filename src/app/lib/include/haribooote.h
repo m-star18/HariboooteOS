@@ -9,3 +9,4 @@ void api_boxfillwin(int win, int x0, int y0, int x1, int y1, int col);
 void api_initmalloc(void);
 char *api_malloc(int size);
 void api_free(char *addr, int size);
+void api_point(int win, int x, int y, int col);

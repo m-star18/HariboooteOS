@@ -2,7 +2,7 @@
 
 CC = gcc
 CFLAGS = -fno-pie -no-pie -nostdlib -m32 -fno-builtin -O0
-INCLUDE = -I include -I ../../tools/stdlibc/include
+INCLUDE = -I include -I ../../../tools/stdlibc/include
 
 TARGET_DIR = ../../../bin/app
 DIST_DIR = $(TARGET_DIR)/lib
