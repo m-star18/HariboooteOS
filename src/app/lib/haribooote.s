@@ -89,3 +89,40 @@ api_boxfillwin:
     pop %esi
     pop %edi
     ret
+
+#void api_initmalloc(void)
+.global api_initmalloc
+api_initmalloc:
+    push %ebx
+    movl $8, %edx
+    movl %cs: (0x0020), %ebx #malloc領域
+    movl %ebx, %eax
+    addl $32 * 1024, %eax #32KBを足す
+    movl %cs: (0x0000), %ecx #データセグメントの大きさ
+    sub %eax, %ecx
+    int $0x40
+    pop %ebx
+    ret
+
+#char *api_malloc(int size)
+.global api_malloc
+api_malloc:
+    push %ebx
+    movl $9, %edx
+    movl %cs: (0x0020), %ebx
+    movl 8(%esp), %ecx #size
+    int $0x40
+    pop %ebx
+    ret
+
+#void api_free(char *addr, int size)
+.global api_free
+api_free:
+    push %ebx
+    movl $10, %edx
+    movl %cs: (0x0020), %ebx
+    movl 8(%esp), %eax #addr
+    movl 12(%esp), %ecx #size
+    int $0x40
+    pop %ebx
+    ret
