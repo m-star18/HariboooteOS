@@ -235,7 +235,9 @@ struct SHEET {
     int col_inv; //透明色
     int height; //高さ
     int flags;
+
     struct SHTCTL *ctl;
+    struct TASK *task;
 };
 
 struct SHTCTL {
@@ -366,6 +368,7 @@ struct CONSOLE {
     int cur_x;
     int cur_y;
     int cur_c;
+    struct TIMER *timer;
 };
 
 void console_task(struct SHEET *sheet, unsigned int memtotal);
@@ -382,6 +385,7 @@ void cons_putstr0(struct CONSOLE *cons, char *s);
 void cons_putstr1(struct CONSOLE *cons, char *s, int l);
 int *hrb_api(int edi, int esi, int ebp, int esp, int ebx, int edx, int ecx, int eax);
 int *inthandler0d(int *esp);
+void hrb_api_linewin(struct SHEET *sht, int x0, int y0, int x1, int y1, int col);
 
 //window.c
 void make_window8(unsigned char *buf, int xsize, int ysize, char *title, char act);

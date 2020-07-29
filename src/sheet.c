@@ -2,7 +2,6 @@
 
 struct SHTCTL *shtctl_init(struct MEMMAN *memman, unsigned char *vram, int xsize, int ysize) {
     struct SHTCTL *ctl;
-    int i;
     ctl = (struct SHTCTL *) memman_alloc_4k(memman, sizeof(struct SHTCTL));
 
     if (ctl == 0)
@@ -10,7 +9,7 @@ struct SHTCTL *shtctl_init(struct MEMMAN *memman, unsigned char *vram, int xsize
 
     ctl->map = (unsigned char *)memman_alloc_4k(memman, xsize * ysize);
     if (ctl->map == 0) {
-        memman_free_4k(memman, (int)ctl, sizeof(struct SHTCTL));
+        memman_free_4k(memman, (int) ctl, sizeof(struct SHTCTL));
         goto err;
     }
 
@@ -19,7 +18,7 @@ struct SHTCTL *shtctl_init(struct MEMMAN *memman, unsigned char *vram, int xsize
     ctl->ysize = ysize;
 
     ctl->top = -1; //1枚もない
-    for (i = 0; i < MAX_SHEETS; i++) {
+    for (int i = 0; i < MAX_SHEETS; i++) {
         ctl->sheets0[i].flags = 0;
         ctl->sheets0[i].ctl = ctl;
     }
@@ -31,12 +30,12 @@ err:
 struct SHEET *sheet_alloc(struct SHTCTL *ctl) {
     struct SHEET *sht;
 
-    int i;
-    for (i = 0; i < MAX_SHEETS; i++) {
+    for (int i = 0; i < MAX_SHEETS; i++) {
         if (ctl->sheets0[i].flags == 0) {
             sht = &ctl->sheets0[i];
             sht->flags = SHEET_USE;
             sht->height = -1; //非表示
+            sht->task = 0; //自動で閉じない
 
             return sht;
         }

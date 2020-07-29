@@ -11,10 +11,10 @@ LS = ../../../scripts/app.lds
 
 TARGET_DIR = ../../../bin/app
 DIST_DIR = $(TARGET_DIR)/dist
-TMP_DIR = $(TARGET_DIR)/tmp/winhelo
+TMP_DIR = $(TARGET_DIR)/tmp/winhelo3
 
-APP = $(DIST_DIR)/winhelo
-APP_SRC = winhelo.c
+APP = $(DIST_DIR)/winhelo3
+APP_SRC = winhelo3.c
 
 $(APP): $(APP_SRC) $(LIB)
 	mkdir -p $(DIST_DIR)

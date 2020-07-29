@@ -144,7 +144,7 @@ void task_add(struct TASK *task) {
     struct TASKLEVEL *tl = &taskctl->level[task->level];
     tl->tasks[tl->running] = task;
     tl->running++;
-    task->flags  = 2;
+    task->flags = 2;
 }
 
 void task_remove(struct TASK *task) {
@@ -182,6 +182,6 @@ void task_switchsub(void) {
 }
 
 void task_idle(void) {
-    for(;;)
+    for (;;)
         io_hlt();
 }

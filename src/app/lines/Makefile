@@ -1,7 +1,7 @@
 #Makefile
 
 CC = gcc
-CFLAGS = -fno-pie -no-pie -nostdlib -m32 -fno-builtin -O0
+CFLAGS = -fno-pie -no-pie -nostdlib -m32 -fno-builtin -O0 -fno-common
 INCLUDE = -I ../lib/include
 
 LFLAGS = -m elf_i386
@@ -11,10 +11,10 @@ LS = ../../../scripts/app.lds
 
 TARGET_DIR = ../../../bin/app
 DIST_DIR = $(TARGET_DIR)/dist
-TMP_DIR = $(TARGET_DIR)/tmp/winhelo
+TMP_DIR = $(TARGET_DIR)/tmp/lines
 
-APP = $(DIST_DIR)/winhelo
-APP_SRC = winhelo.c
+APP = $(DIST_DIR)/lines
+APP_SRC = lines.c
 
 $(APP): $(APP_SRC) $(LIB)
 	mkdir -p $(DIST_DIR)

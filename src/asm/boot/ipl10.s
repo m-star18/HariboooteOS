@@ -16,11 +16,11 @@ jmp entry
 .word   2 # number of head(should be 2)
 .int    0 # partion(should be 0 if not use partion)
 .int    2880 # size of dirve
-.byte   0,0,0x29 # unknown
+.byte   0, 0, 0x29 # unknown
 .int    0xffffffff # maybe serial number ofvolume
 .ascii  "HELLO-OS   " # disk name(11byte)
 .ascii  "FAT12   " # name of format(8byte)
-.skip   18,0 # padding?
+.skip   18, 0 # padding?
 
 .set CYLS, 10
 .set _CYLS, 0xff0
