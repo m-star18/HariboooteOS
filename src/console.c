@@ -442,6 +442,21 @@ int *hrb_api(int edi, int esi, int ebp, int esp, int ebx, int edx, int ecx, int 
 
         sht = (struct SHEET *) ebx;
         sheet_refresh(sht, eax, ecx, esi, edi);
+
+    } else if (edx == 13) {
+        /* ウインドウに線を描く
+         * ebx : win
+         * eax : x0
+         * exx : y0
+         * esi : x1
+         * edi : y1
+         * ebp : color
+         * */
+
+        sht = (struct SHEET *) (ebx & 0xfffffffe);
+        hrb_api_linewin(sht, eax, ecx, esi, edi, ebp);
+        if ((ebx & 1) == 0)
+            sheet_refresh(sht, esi, edi, esi + 1, edi + 1);
     }
 
     return 0;
@@ -469,4 +484,66 @@ int *inthandler0c(int *esp) {
     cons_putstr0(cons, str);
     //異常終了
     return &(task->tss.esp0);
+}
+
+void hrb_api_linewin(struct SHEET *sht, int x0, int y0, int x1, int y1, int col) {
+    int i;
+    int x, y;
+    int len;
+    int dx, dy;
+
+    dx = x1 - x0;
+    dy = y1 - y0;
+
+    //小数をまだ扱えないので整数を1024倍して扱う
+    //シフト演算なので高速
+    x = x0 << 10;
+    y = y0 << 10;
+
+    //変化量の絶対値を求めたいので、マイナスになった場合は整数にする
+    if (dx < 0) dx = -dx;
+    if (dy < 0) dy = -dy;
+
+    //まずはlenを決める
+    //変化量の大きい方をlenとする(lenは点を打つ回数、1024を足すと1ドット扱い)
+    //変化量の大きい方は、変化量を1024か-1024(実際には線を引くときに1024で割るので1か-1)にする
+    //変化量が小さい方はlenで割る(ここで1を足すのは、変化量が小さい方が丸められて、指定された位置まで足りなくなってしまうことを防ぐため)
+    if (dx >= dy) {
+        len = dx + 1;
+        //マイナス方向
+        if (x0  > x1)
+            dx -= 1024;
+
+        //プラス方向
+        else
+            dx = 1024;
+
+        //短い方はlenで割る（書く回数で割って、長い方を1単位としたものに対する一回あたりの変化量とするなる）
+        if (y0 <= y1)
+            dy = ((y1 - y0 + 1) << 10) / len;
+
+        else
+            dy = ((y1 - y0 - 1) << 10) / len;
+
+    } else {
+        len = dy + 1;
+        if (y0 > y1)
+            dy -= 1024;
+
+        else
+            dy = 1024;
+
+        if (x0 <= x1)
+            dx = ((x1 - x0 + 1) << 10) / len;
+
+        else
+            dx = ((x1 - x0 - 1) << 10) / len;
+    }
+
+    for (i = 0; i < len; i++) {
+        //それぞれの変化量ごとに描く
+        sht->buf[(y >> 10) * sht->bxsize + (x >> 10)] = col;
+        x += dx;
+        y += dy;
+    }
 }
