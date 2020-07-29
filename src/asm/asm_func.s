@@ -179,12 +179,12 @@ asm_inthandler21:
     push %ds
     pusha
     movl %esp, %eax
-    pushl %eax
+    push %eax
     movw %ss, %ax
     movw %ax, %ds
     movw %ax, %es
     call inthandler21
-    popl %eax
+    pop %eax
     popa
     pop %ds
     pop %es
@@ -201,7 +201,7 @@ asm_inthandler2c:
     movw %ax, %ds
     movw %ax, %es
     call inthandler2c
-    popl %eax
+    pop %eax
     popa
     pop %ds
     pop %es
@@ -218,7 +218,7 @@ asm_inthandler27:
     movw %ax, %ds
     movw %ax, %es
     call inthandler27
-    popl %eax
+    pop %eax
     popa
     pop %ds
     pop %es
@@ -235,7 +235,7 @@ asm_inthandler20:
     movw %ax, %ds
     movw %ax, %es
     call inthandler20
-    popl %eax
+    pop %eax
     popa
     pop %ds
     pop %es
@@ -269,7 +269,6 @@ mts_loop:
     pop %esi
     pop %edi
     ret
-
 mts_fin:
     movl %edx, (%ebx) #*p = old
     pop %ebx

@@ -106,7 +106,8 @@ void cons_putchar(struct CONSOLE *cons, int chr, char move) {
             cons->cur_x += 8;
             if (cons->cur_x == 8 + 240)
                 cons_newline(cons);
-            if (((cons->cur_x - 8) & 0x1f) == 0) break; //32で割り切れたら
+            if (((cons->cur_x - 8) & 0x1f) == 0)
+                break; //32で割り切れたら
         }
     //LF
     } else if (str[0] == 0x0a)
@@ -143,7 +144,6 @@ void cons_newline(struct CONSOLE *cons) {
     cons->cur_x = 8;
 }
 
-
 void cons_runcmd(char *cmdline, struct CONSOLE *cons, int *fat, unsigned int memtotal) {
     if (_strcmp(cmdline, "mem") == 0)
         cmd_mem(cons, memtotal);
@@ -163,7 +163,7 @@ void cons_runcmd(char *cmdline, struct CONSOLE *cons, int *fat, unsigned int mem
     }
 }
 
-void cmd_mem(struct CONSOLE *cons, unsigned int memtotal){
+void cmd_mem(struct CONSOLE *cons, unsigned int memtotal) {
     struct MEMMAN *memman = (struct MEMMAN *) MEMMAN_ADDR;
     char str[60];
 
@@ -188,7 +188,7 @@ void cmd_dir(struct CONSOLE *cons) {
     int i, j;
     char str[30];
 
-   for (i = 0; i < 224; i++) {
+    for (i = 0; i < 224; i++) {
         if (finfo[i].name[0] == 0x00) break;
         if (finfo[i].name[0] != 0xa5) {
             if ((finfo[i].type & 0x18) == 0) {
@@ -279,8 +279,8 @@ int cmd_app(struct CONSOLE *cons, int *fat, char *cmdline) {
             datsiz = *((int *) (p + 0x0010)); //データセクションからデータセグメントにコピーする大きさ
             dathrb = *((int *) (p + 0x0014)); //hrbファイル内のデータセクションの位置
 
-            _sprintf(str, "[debug] segsiz=0x%X, esp=0x%X\n[debug] datsiz=0x%x, dathrb=0x%x\n", segsiz, esp, datsiz, dathrb);
-            cons_putstr0(cons, str);
+            //_sprintf(str, "[debug] segsiz=0x%X, esp=0x%X\n[debug] datsiz=0x%x, dathrb=0x%x\n", segsiz, esp, datsiz, dathrb);
+            //cons_putstr0(cons, str);
 
             //データセグメントのサイズに基づいてメモリ確保
             q = (char *) memman_alloc_4k(memman, segsiz);
@@ -345,17 +345,19 @@ int *hrb_api(int edi, int esi, int ebp, int esp, int ebx, int edx, int ecx, int 
     else if (edx == 3)
         cons_putstr1(cons, (char *) ebx + ds_base, ecx);
 
-    else if (edx == 4)
+    else if (edx == 4) {
+        //api_end
         return &(task->tss.esp0);
 
-    else if (edx == 5) {
-        /*
-        ebx buf
-        esi xsiz
-        edi ysiz
-        eax col_in
-        ecx title
-        */
+    } else if (edx == 5) {
+        /* windowを作る
+         * ebx buf
+         * esi xsiz
+         * edi ysiz
+         * eax col_in
+         * ecx title
+         * */
+
         sht = sheet_alloc(shtctl);
         sheet_setbuf(sht, (char *) ebx + ds_base, esi, edi, eax);
         make_window8((char *) ebx + ds_base, esi, edi, (char *) ecx + ds_base, 0);
@@ -364,13 +366,13 @@ int *hrb_api(int edi, int esi, int ebp, int esp, int ebx, int edx, int ecx, int 
         reg[7] = (int) sht;
 
     } else if (edx == 6) {
-        /*
-         * %ebx win
-         * %esi x
-         * %edi y
-         * %eax col
-         * %ecx len
-         * %ebp str
+        /*  windowに文字列を書く
+         * ebx win
+         * esi x
+         * edi y
+         * eax col
+         * ecx len
+         * ebp str
          * */
 
         sht = (struct SHEET *) ebx;
@@ -378,17 +380,56 @@ int *hrb_api(int edi, int esi, int ebp, int esp, int ebx, int edx, int ecx, int 
         sheet_refresh(sht, esi, edi, esi + ecx * 8, edi + 16);
 
     } else if (edx == 7) {
-        /*
-         * %ebx win
-         * %eax x0
-         * %ecx y0
-         * %esi x1
-         * %edi y1
-         * %ebp col
+        /* windowに四角形を描く
+         * ebx win
+         * eax x0
+         * ecx y0
+         * esi x1
+         * edi y1
+         * ebp col
          * */
         sht = (struct SHEET *) ebx;
         boxfill8(sht->buf, sht->bxsize, ebp, eax, ecx, esi, edi);
         sheet_refresh(sht, eax, ecx, esi + 1, edi + 1);
+
+    } else if (edx == 8) {
+        /* memman初期化
+         * ebx : memman
+         * eax : malloc開始アドレス（管理アドレスの最初）
+         * ecx : 管理させる領域のバイト数
+         * */
+        memman_init((struct MEMMAN *) (ebx + ds_base));
+        ecx &= 0xfffffff0; //16byte単位
+        memman_free((struct MEMMAN *) (ebx + ds_base), eax, ecx);
+
+    } else if (edx == 9) {
+        /* メモリ確保
+         * ebx : memman
+         * ecx : 要求バイト数
+         * eax : 確保した領域のアドレス（戻り値）
+         * */
+        ecx = (ecx + 0x0f) & 0xfffffff0; //16byte単位に切り上げ
+        reg[7] = memman_alloc((struct MEMMAN *) (ebx + ds_base), ecx);
+
+    } else if (edx == 10) {
+        /* メモリ解放
+         * ebx : memman
+         * ebx : 開放する領域のアドレス
+         * ecx : 開放したいバイト数
+         * */
+        ecx = (ecx + 0x0f) & 0xfffffff0; //16byte単位に切り上げ
+        memman_free((struct MEMMAN *) (ebx + ds_base), eax, ecx);
+
+    } else if (edx == 11) {
+        /* ウインドウに点を打つ
+         * ebx : win
+         * esi : x
+         * edi : y
+         * eax : color
+         * */
+        sht = (struct SHEET *) ebx;
+        sht->buf[sht->bxsize * edi + esi] = eax;
+        sheet_refresh(sht, esi, edi, esi + 1, edi + 1);
     }
 
     return 0;
