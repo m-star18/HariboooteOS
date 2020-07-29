@@ -13,3 +13,4 @@ void api_point(int win, int x, int y, int col);
 void api_refreshwin(int win, int x0, int y0, int x1, int y1);
 void api_linewin(int win, int x0, int y0, int x1, int y1, int col);
 void api_closewin(int win);
+int api_getkey(int mode);

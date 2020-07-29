@@ -366,6 +366,7 @@ struct CONSOLE {
     int cur_x;
     int cur_y;
     int cur_c;
+    struct TIMER *timer;
 };
 
 void console_task(struct SHEET *sheet, unsigned int memtotal);

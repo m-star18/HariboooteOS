@@ -331,6 +331,8 @@ int *hrb_api(int edi, int esi, int ebp, int esp, int ebx, int edx, int ecx, int 
     struct SHTCTL *shtctl = (struct SHTCTL *) *((int *)0xfe4);
     struct SHEET *sht;
 
+    int i;
+
     int *reg = &eax + 1; //eaxの次の番地
     //asm_hrb_apiでこの関数はcallされ、call前にpsuhaを2回やっている
     //ここでは引数のeaxの次の番地(=1回目のpushadのedi)のアドレスを参照させる
@@ -464,6 +466,47 @@ int *hrb_api(int edi, int esi, int ebp, int esp, int ebx, int edx, int ecx, int 
          * */
 
         sheet_free((struct SHEET *) ebx);
+
+    } else if (edx == 15) {
+        /**
+         * キー入力を受け付ける
+         * eax == 0 : キー入力がなければ-1を返す
+         * eax == 1 : キー入力があるまでスリープ
+         * */
+
+        for (;;) {
+            io_cli();
+            if (fifo32_status(&task->fifo) == 0) {
+                if (eax != 0)
+                    task_sleep(task); //待つ
+
+                else {
+                    io_sti();
+                    reg[7] = -1;
+                    return 0;
+                }
+            }
+
+            i = fifo32_get(&task->fifo);
+            io_sti();
+
+            if (i <= 1) { //カーソル用タイマ
+                //アプリ実行中はカーソルが出ないので、いつも次は表示用の1にしておく
+                timer_init(cons->timer, &task->fifo, 1);
+                timer_settime(cons->timer, 50);
+            }
+            if (i == 2) //カーソルon
+                cons->cur_c = COL8_FFFFFF;
+
+            if (i == 3)
+                cons->cur_c = -1;
+
+            if (i >= 256 && i <= 511) {
+                //キーボード
+                reg[7] = i - 256;
+                return 0;
+            }
+        }
     }
 
     return 0;
