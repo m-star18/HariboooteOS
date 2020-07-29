@@ -269,6 +269,7 @@ mts_loop:
     pop %esi
     pop %edi
     ret
+
 mts_fin:
     movl %edx, (%ebx) #*p = old
     pop %ebx

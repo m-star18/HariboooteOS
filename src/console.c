@@ -430,6 +430,18 @@ int *hrb_api(int edi, int esi, int ebp, int esp, int ebx, int edx, int ecx, int 
         sht = (struct SHEET *) ebx;
         sht->buf[sht->bxsize * edi + esi] = eax;
         sheet_refresh(sht, esi, edi, esi + 1, edi + 1);
+
+    } else if (edx == 12) {
+        /*
+         * ebx : win
+         * eax : x0
+         * ecx : y0
+         * esi : x1
+         * edi : y1
+         * */
+
+        sht = (struct SHEET *) ebx;
+        sheet_refresh(sht, eax, ecx, esi, edi);
     }
 
     return 0;

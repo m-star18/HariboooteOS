@@ -145,3 +145,21 @@ api_point:
     pop %esi
     pop %edi
     ret
+
+#void api_refreshwin(int win, int x0, int y0, int x1, int y1)
+.global api_refreshwin
+api_refreshwin:
+    push %edi
+    push %esi
+    push %ebx
+    movl $12, %edx
+    movl 16(%esp), %ebx
+    movl 20(%esp), %eax
+    movl 24(%esp), %ecx
+    movl 28(%esp), %esi
+    movl 32(%esp), %edi
+    int $0x40
+    pop %ebx
+    pop %esi
+    pop %edi
+    ret
