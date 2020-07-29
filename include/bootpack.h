@@ -235,7 +235,9 @@ struct SHEET {
     int col_inv; //透明色
     int height; //高さ
     int flags;
+
     struct SHTCTL *ctl;
+    struct TASK *task;
 };
 
 struct SHTCTL {
