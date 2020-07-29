@@ -457,6 +457,13 @@ int *hrb_api(int edi, int esi, int ebp, int esp, int ebx, int edx, int ecx, int 
         hrb_api_linewin(sht, eax, ecx, esi, edi, ebp);
         if ((ebx & 1) == 0)
             sheet_refresh(sht, esi, edi, esi + 1, edi + 1);
+
+    } else if (edx == 14) {
+        /* ウインドウを閉じる
+         * ebx : win
+         * */
+
+        sheet_free((struct SHEET *) ebx);
     }
 
     return 0;
