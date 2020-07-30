@@ -343,6 +343,21 @@ void HariMain(void) {
                                             mmx = mx;
                                             mmy = my;
                                         }
+
+                                        //閉じるボタンのクリック
+                                        if (sht->bxsize - 21 <= x && x < sht->bxsize - 5 && 5 <= y && y < 19) {
+                                            //アプリが作ったウィンドウ
+                                            if (sht->task != 0) {
+                                                cons = (struct CONSOLE *) *((int *) 0x0fec);
+                                                cons_putstr0(cons, "\nBreak(mouse):\n");
+
+                                                //強制終了
+                                                io_cli(); //強制終了中にタスクスイッチさせない
+                                                task_cons->tss.eax = (int) & (task_cons->tss.esp0);
+                                                task_cons->tss.eip = (int) asm_end_app;
+                                                io_sti();
+                                            }
+                                        }
                                         break;
                                     }
                                 }
