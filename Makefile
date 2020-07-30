@@ -1,8 +1,9 @@
 #Makefile
 
 CC = gcc
-CFLAGS = -fno-pie -no-pie -nostdlib -m32 -fno-builtin -O0
-INCLUDE = -I include -I tools/stdlibc/include
+CWARN = -Wall -Wno-pointer-sign -Wno-unused-variable
+CFLAGS = -fno-pie -no-pie -nostdlib -m32 -fno-builtin -O0 $(CWARN)
+INCLUDE = -I include -I src/tools/stdlibc/include
 
 LD = ld
 LFLAGS = -m elf_i386
@@ -36,10 +37,10 @@ OSL_LS = scripts/asmhead.lds
 OSL = $(TARGET_DIR)/asmhead.bin
 
 #external lib
-STDLIBC_DIR = tools/stdlibc
+STDLIBC_DIR = src/tools/stdlibc
 STDLIBC = $(STDLIBC_DIR)/bin/stdlibc.o
 
-FONT_DIR = tools/makefont
+FONT_DIR = src/tools/makefont
 FONT = $(FONT_DIR)/bin/hankaku.o
 
 EXCLUDE_EXLIB_DEP_FILE = *.swp

@@ -15,7 +15,7 @@ SECTIONS {
         LONG(LOADADDR(.data)) /* 20 : .dataの初期値列のファイル位置 */
         LONG(0xE9000000)      /* 24 : 0xE9000000 */
         LONG(HariMain - 0x20) /* 28 : エントリアドレス - 0x20 */
-        LONG(24*1024)         /* 32 : heap領域（malloc領域）開始アドレス */
+        LONG(24 * 1024)         /* 32 : heap領域（malloc領域）開始アドレス */
     }
 
     .text : { *(.text) }
