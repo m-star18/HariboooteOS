@@ -9,6 +9,7 @@ void HariMain(void) {
     int mx, my;
     int i, j;
     int x, y;
+    int mmx = -1, mmy = -1;
     unsigned int memtotal;
 
     int cursor_x = 8;
@@ -37,7 +38,7 @@ void HariMain(void) {
 
     struct CONSOLE *cons;
 
-    struct SHEET *sht;
+    struct SHEET *sht = 0;
 
     static char keytable0[] = {
         0, 0, '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '^', 0, 0,
@@ -322,20 +323,44 @@ void HariMain(void) {
 
                     //左クリック
                     if ((mdec.btn & 0x01) != 0) {
-                        //上の下敷きから順番にマウスが押している下敷きを探す
-                        for (j = shtctl->top - 1; j > 0; j--) {
-                            sht = shtctl->sheets[j];
-                            x = mx - sht->vx0;
-                            y = my - sht->vy0;
-                            //マウスが乗っているウインドウの判定
-                            if (x >= 0 && x < sht->bxsize && 0 <= y && y < sht->bysize) {
-                                //透明でない
-                                if (sht->buf[y * sht->bxsize + x] != sht->col_inv) {
-                                    sheet_updown(sht, shtctl->top - 1);
-                                    break;
+                        //通常モード
+                        if (mmx < 0) {
+                            //上の下敷きから順番にマウスが押している下敷きを探す
+                            for (j = shtctl->top - 1; j > 0; j--) {
+                                sht = shtctl->sheets[j];
+                                x = mx - sht->vx0;
+                                y = my - sht->vy0;
+
+                                //マウスが乗っているウインドウの判定
+                                if (x >= 0 && x < sht->bxsize && 0 <= y && y < sht->bysize) {
+                                    //透明でない
+                                    if (sht->buf[y * sht->bxsize + x] != sht->col_inv) {
+                                        sheet_updown(sht, shtctl->top - 1);
+
+                                        //タイトルバーを掴んだ
+                                        if (x >= 3 && x < sht->bxsize - 3 && y >= 3 && y < 21) {
+                                            //ウインドウ移動モードにする
+                                            mmx = mx;
+                                            mmy = my;
+                                        }
+                                        break;
+                                    }
                                 }
                             }
+                        } else {
+                            //ウインドウ移動モード
+                            //マウスの移動量を計算して移動
+                            x = mx - mmx;
+                            y = my - mmy;
+                            sheet_slide(sht, sht->vx0 + x, sht->vy0 + y);
+
+                            //移動先の座標に更新
+                            mmx = mx;
+                            mmy = my;
                         }
+                    } else {
+                        //左ボタンを押していない
+                        mmx = -1; //通常モードにする
                     }
                 }
             }
