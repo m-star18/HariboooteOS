@@ -8,6 +8,7 @@ void HariMain(void) {
     int keycmd_buf[32];
     int mx, my;
     int i, j;
+    int x, y;
     unsigned int memtotal;
 
     int cursor_x = 8;
@@ -35,6 +36,8 @@ void HariMain(void) {
     struct TIMER *timer;
 
     struct CONSOLE *cons;
+
+    struct SHEET *sht;
 
     static char keytable0[] = {
         0, 0, '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '^', 0, 0,
@@ -317,9 +320,23 @@ void HariMain(void) {
                     //移動後の描画
                     sheet_slide(sht_mouse, mx, my);
 
-                    //左クリックした位置にウインドウを移動する
-                    if ((mdec.btn & 0x01) != 0)
-                        sheet_slide(sht_win, mx - 80, my - 8);
+                    //左クリック
+                    if ((mdec.btn & 0x01) != 0) {
+                        //上の下敷きから順番にマウスが押している下敷きを探す
+                        for (j = shtctl->top - 1; j > 0; j--) {
+                            sht = shtctl->sheets[j];
+                            x = mx - sht->vx0;
+                            y = my - sht->vy0;
+                            //マウスが乗っているウインドウの判定
+                            if (x >= 0 && x < sht->bxsize && 0 <= y && y < sht->bysize) {
+                                //透明でない
+                                if (sht->buf[y * sht->bxsize + x] != sht->col_inv) {
+                                    sheet_updown(sht, shtctl->top - 1);
+                                    break;
+                                }
+                            }
+                        }
+                    }
                 }
             }
             //タイマ
