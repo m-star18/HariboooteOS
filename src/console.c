@@ -312,6 +312,7 @@ int cmd_app(struct CONSOLE *cons, int *fat, char *cmdline) {
                 if ((sht->flags & 0x11) == 0x11 && sht->task == task)
                     sheet_free(sht);
             }
+            timer_cancelall(&task->fifo); //アプリで使っていたtimerの自動キャンセル
             memman_free_4k(memman, (int) q, segsiz);
 
         } else
@@ -521,10 +522,11 @@ int *hrb_api(int edi, int esi, int ebp, int esp, int ebx, int edx, int ecx, int 
             }
         }
 
-    } else if (edx == 16)
+    } else if (edx == 16) {
         reg[7] = (int) timer_alloc();
+        ((struct TIMER *) reg[7])->flags2 = 1; //自動キャンセル有効
 
-    else if (edx == 17)
+    } else if (edx == 17)
         timer_init((struct TIMER *) ebx, &task->fifo, eax + 256);
 
     else if (edx == 18)
