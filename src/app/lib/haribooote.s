@@ -201,3 +201,42 @@ api_getkey:
     movl 4(%esp), %eax #mode
     int $0x40
     ret
+
+#int api_alloctimer(void)
+.global api_alloctimer
+api_alloctimer:
+    movl $16, %edx
+    int $0x40
+    ret
+
+#void api_inittimer(int timer, int data)
+.global api_inittimer
+api_inittimer:
+    push %ebx
+    movl $17, %edx
+    movl 8(%esp), %ebx  #timer
+    movl 12(%esp), %eax #data
+    int $0x40
+    pop %ebx
+    ret
+
+#void api_settimer(int timer, int time)
+.global api_settimer
+api_settimer:
+    push %ebx
+    movl $18, %edx
+    movl 8(%esp), %ebx  #imer
+    movl 12(%esp), %eax #time
+    int $0x40
+    pop %ebx
+    ret
+
+#void api_freetimer(int timer)
+.global api_freetimer
+api_freetimer:
+    push %ebx
+    movl $19, %edx
+    movl 8(%esp), %ebx  #imer
+    int $0x40
+    pop %ebx
+    ret

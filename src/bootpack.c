@@ -8,6 +8,8 @@ void HariMain(void) {
     int keycmd_buf[32];
     int mx, my;
     int i, j;
+    int x, y;
+    int mmx = -1, mmy = -1;
     unsigned int memtotal;
 
     int cursor_x = 8;
@@ -35,6 +37,9 @@ void HariMain(void) {
     struct TIMER *timer;
 
     struct CONSOLE *cons;
+
+    struct SHEET *sht = 0;
+    struct SHEET *key_win;
 
     static char keytable0[] = {
         0, 0, '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '^', 0, 0,
@@ -165,6 +170,12 @@ void HariMain(void) {
     fifo32_put(&keycmd, KEYCMD_LED);
     fifo32_put(&keycmd, key_leds);
 
+    //アプリが作ったウインドウかかの判別、マスク0x10
+    //カーソルon/offの必要があるかどうかを判断、マスク0x20
+    key_win = sht_win;
+    sht_cons->task = task_cons;
+    sht_cons->flags |= 0x20; //カーソルあり
+
     for (;;) {
         if (fifo32_status(&keycmd) > 0 && keycmd_wait < 0) {
             //キーボードコントローラにデータを送信
@@ -181,6 +192,12 @@ void HariMain(void) {
         } else {
             i = fifo32_get(&fifo);
             io_sti();
+
+            if (key_win->flags == 0) { //入力ウィンドウが閉じられた(ウインドウがなくなっていた)
+                //2番目のウィンドウにむける
+                key_win = shtctl->sheets[shtctl->top - 1];
+                cursor_c = keywin_on(key_win, sht_win, cursor_c);
+            }
 
             //キーボード
             if (i >= 256 && i <= 511) {
@@ -204,49 +221,38 @@ void HariMain(void) {
 
                 //通常文字
                 if (str[0] != 0) {
-                    if (key_to == 0) { //task_a
+                    if (key_win == sht_win) { //task_a
                         if (cursor_x < 128) {
                             str[1] = 0;
                             putfonts8_asc_sht(sht_win, cursor_x, 28, COL8_000000, COL8_FFFFFF, str, 1);
                             cursor_x += 8;
                         }
                     } else //task_cons
-                        fifo32_put(&task_cons->fifo, str[0] + 256);
+                        fifo32_put(&key_win->task->fifo, str[0] + 256);
                 }
 
                 if (i == 256 + 0x0e) { //backspace
-                    if (key_to == 0) {
+                    if (key_win == sht_win) {
                         if (cursor_x > 8) {
                             putfonts8_asc_sht(sht_win, cursor_x, 28, COL8_000000, COL8_FFFFFF, " ", 1);
                             cursor_x -= 8;
                         }
                     } else
-                        fifo32_put(&task_cons->fifo, 8 + 256);
+                        fifo32_put(&key_win->task->fifo, 8 + 256);
                 }
 
                 if (i == 256 + 0x0f) { //TAB
-                    if (key_to == 0) {
-                        key_to = 1;
-                        make_wtitle8(buf_win, sht_win->bxsize, "task_a", 0);
-                        make_wtitle8(buf_cons, sht_cons->bxsize, "console", 1);
-                        cursor_c = -1;
-                        boxfill8(sht_win->buf, sht_win->bxsize, COL8_FFFFFF, cursor_x, 28, cursor_x + 7, 43);
-                        fifo32_put(&task_cons->fifo, 2); //console
-                    } else {
-                        key_to = 0;
-                        make_wtitle8(buf_win, sht_win->bxsize, "task_a", 1);
-                        make_wtitle8(buf_cons, sht_cons->bxsize, "console", 0);
-                        cursor_c = COL8_000000;
-                        fifo32_put(&task_cons->fifo, 3); //console
-                    }
-
-                    sheet_refresh(sht_win, 0, 0, sht_win->bxsize, 21);
-                    sheet_refresh(sht_cons, 0, 0, sht_cons->bxsize, 21);
+                    cursor_c = keywin_off(key_win, sht_win, cursor_c, cursor_x);
+                    j = key_win->height - 1;
+                    if (j == 0)
+                        j = shtctl->top - 1;
+                    key_win = shtctl->sheets[j];
+                    cursor_c = keywin_on(key_win, sht_win, cursor_c);
                 }
 
                 if (i == 256 + 0x1c) { //enter
-                    if (key_to != 0)
-                        fifo32_put(&task_cons->fifo, 10 + 256);
+                    if (key_win != sht_win)
+                        fifo32_put(&key_win->task->fifo, 10 + 256);
                 }
 
                 if (i == 256 + 0x2a) //left shift enable
@@ -286,6 +292,9 @@ void HariMain(void) {
                     task_cons->tss.eip = (int) asm_end_app;
                     io_sti();
                 }
+                if (i == 256 + 0x57 && shtctl->top > 2) //F11
+                    sheet_updown(shtctl->sheets[1], shtctl->top - 1);
+
                 if (i == 256 + 0xfa) //キーボードがデータを正しく受け取った
                     keycmd_wait = -1;
 
@@ -298,7 +307,7 @@ void HariMain(void) {
                     boxfill8(sht_win->buf, sht_win->bxsize, cursor_c, cursor_x, 28, cursor_x + 7, 43);
                 sheet_refresh(sht_win, cursor_x, 28, cursor_x + 8, 44);
 
-            //マウス
+                //マウス
             } else if (i >= 512 && i <= 767) {
                 if (mouse_decode(&mdec, i - 512) != 0) {
                     //値の書き換え
@@ -314,9 +323,68 @@ void HariMain(void) {
                     //移動後の描画
                     sheet_slide(sht_mouse, mx, my);
 
-                    //左クリックした位置にウインドウを移動する
-                    if ((mdec.btn & 0x01) != 0)
-                        sheet_slide(sht_win, mx - 80, my - 8);
+                    //左クリック
+                    if ((mdec.btn & 0x01) != 0) {
+                        //通常モード
+                        if (mmx < 0) {
+                            //上の下敷きから順番にマウスが押している下敷きを探す
+                            for (j = shtctl->top - 1; j > 0; j--) {
+                                sht = shtctl->sheets[j];
+                                x = mx - sht->vx0;
+                                y = my - sht->vy0;
+
+                                //マウスが乗っているウインドウの判定
+                                if (x >= 0 && x < sht->bxsize && 0 <= y && y < sht->bysize) {
+                                    //透明でない
+                                    if (sht->buf[y * sht->bxsize + x] != sht->col_inv) {
+                                        sheet_updown(sht, shtctl->top - 1);
+
+                                        if (sht != key_win) {
+                                            cursor_c = keywin_off(key_win, sht_win, cursor_c, cursor_x);
+                                            key_win = sht;
+                                            cursor_c = keywin_on(key_win, sht_win, cursor_c);
+                                        }
+
+                                        //タイトルバーを掴んだ
+                                        if (x >= 3 && x < sht->bxsize - 3 && y >= 3 && y < 21) {
+                                            //ウインドウ移動モードにする
+                                            mmx = mx;
+                                            mmy = my;
+                                        }
+
+                                        //閉じるボタンのクリック
+                                        if (sht->bxsize - 21 <= x && x < sht->bxsize - 5 && 5 <= y && y < 19) {
+                                            //アプリが作ったウィンドウ
+                                            if ((sht->flags & 0x10) != 0) {
+                                                cons = (struct CONSOLE *) *((int *) 0x0fec);
+                                                cons_putstr0(cons, "\nBreak(mouse):\n");
+
+                                                //強制終了
+                                                io_cli(); //強制終了中にタスクスイッチさせない
+                                                task_cons->tss.eax = (int) & (task_cons->tss.esp0);
+                                                task_cons->tss.eip = (int) asm_end_app;
+                                                io_sti();
+                                            }
+                                        }
+                                        break;
+                                    }
+                                }
+                            }
+                        } else {
+                            //ウインドウ移動モード
+                            //マウスの移動量を計算して移動
+                            x = mx - mmx;
+                            y = my - mmy;
+                            sheet_slide(sht, sht->vx0 + x, sht->vy0 + y);
+
+                            //移動先の座標に更新
+                            mmx = mx;
+                            mmy = my;
+                        }
+                    } else {
+                        //左ボタンを押していない
+                        mmx = -1; //通常モードにする
+                    }
                 }
             }
             //タイマ
@@ -339,4 +407,33 @@ void HariMain(void) {
             }
         }
     }
+}
+
+int keywin_off(struct SHEET *key_win, struct SHEET *sht_win, int cur_c, int cur_x) {
+    change_wtitle8(key_win, 0);
+
+    //key_winがtask_aだった場合
+    if (key_win == sht_win) {
+        cur_c = -1; //カーソルを消す
+        boxfill8(sht_win->buf, sht_win->bxsize, COL8_FFFFFF, cur_x, 28, cur_x + 7, 43);
+
+    } else {
+        //task_a以外で、カーソルのon/off制御が必要な場合
+        if ((key_win->flags & 0x20) != 0)
+            fifo32_put(&key_win->task->fifo, 3); //カーソルをoffにするためにfifoにデータを送る
+    }
+    return cur_c;
+}
+
+int keywin_on(struct SHEET *key_win, struct SHEET *sht_win, int cur_c) {
+    change_wtitle8(key_win, 1);
+    //key_winがtask_aだった場合
+    if (key_win == sht_win)
+        cur_c = COL8_000000;
+
+    else {
+        if ((key_win->flags & 0x20) != 0)
+            fifo32_put(&key_win->task->fifo, 2); //カーソルをoffにするためにfifoにデータを送る
+    }
+    return cur_c;
 }

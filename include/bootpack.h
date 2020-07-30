@@ -273,6 +273,7 @@ struct TIMER {
     struct TIMER *next;
     unsigned int timeout;
     unsigned int flags;
+    unsigned int flags2; //アプリが使用するタイマかどうか(アプリ終了時に自動的にキャンセルさせる判定に使う)
     struct FIFO32 *fifo;
     int data;
 };
@@ -291,6 +292,8 @@ struct TIMER *timer_alloc(void);
 void timer_free(struct TIMER *timer);
 void timer_init(struct TIMER *timer, struct FIFO32 *fifo, int data);
 void timer_settime(struct TIMER *timer, unsigned int timeout);
+int timer_cancel(struct TIMER *timer);
+void timer_cancelall(struct FIFO32 *fifo);
 void inthandler20(int *esp);
 
 //mtask.c
@@ -387,10 +390,14 @@ int *hrb_api(int edi, int esi, int ebp, int esp, int ebx, int edx, int ecx, int 
 int *inthandler0d(int *esp);
 void hrb_api_linewin(struct SHEET *sht, int x0, int y0, int x1, int y1, int col);
 
+int keywin_on(struct SHEET *key_win, struct SHEET *sht_win, int cur_c);
+int keywin_off(struct SHEET *key_win, struct SHEET *sht_win, int cur_c, int cur_x);
+
 //window.c
 void make_window8(unsigned char *buf, int xsize, int ysize, char *title, char act);
 void make_wtitle8(unsigned char *buf, int xsize, char *title, char act);
 void make_textbox8(struct SHEET *sht, int x0, int y0, int sx, int sy, int c);
 void putfonts8_asc_sht(struct SHEET *sht, int x, int y, int c, int b, char *s, int l);
+void change_wtitle8(struct SHEET *sht, char act);
 
 #endif
