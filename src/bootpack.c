@@ -339,6 +339,12 @@ void HariMain(void) {
                                     if (sht->buf[y * sht->bxsize + x] != sht->col_inv) {
                                         sheet_updown(sht, shtctl->top - 1);
 
+                                        if (sht != key_win) {
+                                            cursor_c = keywin_off(key_win, sht_win, cursor_c, cursor_x);
+                                            key_win = sht;
+                                            cursor_c = keywin_on(key_win, sht_win, cursor_c);
+                                        }
+
                                         //タイトルバーを掴んだ
                                         if (x >= 3 && x < sht->bxsize - 3 && y >= 3 && y < 21) {
                                             //ウインドウ移動モードにする
