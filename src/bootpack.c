@@ -39,6 +39,7 @@ void HariMain(void) {
     struct CONSOLE *cons;
 
     struct SHEET *sht = 0;
+    struct SHEET *key_win;
 
     static char keytable0[] = {
         0, 0, '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '^', 0, 0,
@@ -169,6 +170,12 @@ void HariMain(void) {
     fifo32_put(&keycmd, KEYCMD_LED);
     fifo32_put(&keycmd, key_leds);
 
+    //アプリが作ったウインドウかかの判別、マスク0x10
+    //カーソルon/offの必要があるかどうかを判断、マスク0x20
+    key_win = sht_win;
+    sht_cons->task = task_cons;
+    sht_cons->flags |= 0x20; //カーソルあり
+
     for (;;) {
         if (fifo32_status(&keycmd) > 0 && keycmd_wait < 0) {
             //キーボードコントローラにデータを送信
@@ -185,6 +192,12 @@ void HariMain(void) {
         } else {
             i = fifo32_get(&fifo);
             io_sti();
+
+            if (key_win->flags == 0) { //入力ウィンドウが閉じられた(ウインドウがなくなっていた)
+                //2番目のウィンドウにむける
+                key_win = shtctl->sheets[shtctl->top - 1];
+                cursor_c = keywin_on(key_win, sht_win, cursor_c);
+            }
 
             //キーボード
             if (i >= 256 && i <= 511) {
@@ -208,49 +221,38 @@ void HariMain(void) {
 
                 //通常文字
                 if (str[0] != 0) {
-                    if (key_to == 0) { //task_a
+                    if (key_win == sht_win) { //task_a
                         if (cursor_x < 128) {
                             str[1] = 0;
                             putfonts8_asc_sht(sht_win, cursor_x, 28, COL8_000000, COL8_FFFFFF, str, 1);
                             cursor_x += 8;
                         }
                     } else //task_cons
-                        fifo32_put(&task_cons->fifo, str[0] + 256);
+                        fifo32_put(&key_win->task->fifo, str[0] + 256);
                 }
 
                 if (i == 256 + 0x0e) { //backspace
-                    if (key_to == 0) {
+                    if (key_win == sht_win) {
                         if (cursor_x > 8) {
                             putfonts8_asc_sht(sht_win, cursor_x, 28, COL8_000000, COL8_FFFFFF, " ", 1);
                             cursor_x -= 8;
                         }
                     } else
-                        fifo32_put(&task_cons->fifo, 8 + 256);
+                        fifo32_put(&key_win->task->fifo, 8 + 256);
                 }
 
                 if (i == 256 + 0x0f) { //TAB
-                    if (key_to == 0) {
-                        key_to = 1;
-                        make_wtitle8(buf_win, sht_win->bxsize, "task_a", 0);
-                        make_wtitle8(buf_cons, sht_cons->bxsize, "console", 1);
-                        cursor_c = -1;
-                        boxfill8(sht_win->buf, sht_win->bxsize, COL8_FFFFFF, cursor_x, 28, cursor_x + 7, 43);
-                        fifo32_put(&task_cons->fifo, 2); //console
-                    } else {
-                        key_to = 0;
-                        make_wtitle8(buf_win, sht_win->bxsize, "task_a", 1);
-                        make_wtitle8(buf_cons, sht_cons->bxsize, "console", 0);
-                        cursor_c = COL8_000000;
-                        fifo32_put(&task_cons->fifo, 3); //console
-                    }
-
-                    sheet_refresh(sht_win, 0, 0, sht_win->bxsize, 21);
-                    sheet_refresh(sht_cons, 0, 0, sht_cons->bxsize, 21);
+                    cursor_c = keywin_off(key_win, sht_win, cursor_c, cursor_x);
+                    j = key_win->height - 1;
+                    if (j == 0)
+                        j = shtctl->top - 1;
+                    key_win = shtctl->sheets[j];
+                    cursor_c = keywin_on(key_win, sht_win, cursor_c);
                 }
 
                 if (i == 256 + 0x1c) { //enter
-                    if (key_to != 0)
-                        fifo32_put(&task_cons->fifo, 10 + 256);
+                    if (key_win != sht_win)
+                        fifo32_put(&key_win->task->fifo, 10 + 256);
                 }
 
                 if (i == 256 + 0x2a) //left shift enable
@@ -305,7 +307,7 @@ void HariMain(void) {
                     boxfill8(sht_win->buf, sht_win->bxsize, cursor_c, cursor_x, 28, cursor_x + 7, 43);
                 sheet_refresh(sht_win, cursor_x, 28, cursor_x + 8, 44);
 
-            //マウス
+                //マウス
             } else if (i >= 512 && i <= 767) {
                 if (mouse_decode(&mdec, i - 512) != 0) {
                     //値の書き換え
@@ -347,7 +349,7 @@ void HariMain(void) {
                                         //閉じるボタンのクリック
                                         if (sht->bxsize - 21 <= x && x < sht->bxsize - 5 && 5 <= y && y < 19) {
                                             //アプリが作ったウィンドウ
-                                            if (sht->task != 0) {
+                                            if ((sht->flags & 0x10) != 0) {
                                                 cons = (struct CONSOLE *) *((int *) 0x0fec);
                                                 cons_putstr0(cons, "\nBreak(mouse):\n");
 
@@ -399,4 +401,33 @@ void HariMain(void) {
             }
         }
     }
+}
+
+int keywin_off(struct SHEET *key_win, struct SHEET *sht_win, int cur_c, int cur_x) {
+    change_wtitle8(key_win, 0);
+
+    //key_winがtask_aだった場合
+    if (key_win == sht_win) {
+        cur_c = -1; //カーソルを消す
+        boxfill8(sht_win->buf, sht_win->bxsize, COL8_FFFFFF, cur_x, 28, cur_x + 7, 43);
+
+    } else {
+        //task_a以外で、カーソルのon/off制御が必要な場合
+        if ((key_win->flags & 0x20) != 0)
+            fifo32_put(&key_win->task->fifo, 3); //カーソルをoffにするためにfifoにデータを送る
+    }
+    return cur_c;
+}
+
+int keywin_on(struct SHEET *key_win, struct SHEET *sht_win, int cur_c) {
+    change_wtitle8(key_win, 1);
+    //key_winがtask_aだった場合
+    if (key_win == sht_win)
+        cur_c = COL8_000000;
+
+    else {
+        if ((key_win->flags & 0x20) != 0)
+            fifo32_put(&key_win->task->fifo, 2); //カーソルをoffにするためにfifoにデータを送る
+    }
+    return cur_c;
 }
