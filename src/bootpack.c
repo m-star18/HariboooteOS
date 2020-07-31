@@ -12,9 +12,6 @@ void HariMain(void) {
     int mmx = -1, mmy = -1;
     unsigned int memtotal;
 
-    int cursor_x = 8;
-    int cursor_c = COL8_FFFFFF;
-
     struct BOOTINFO *binfo = (struct BOOTINFO *) ADR_BOOTINFO;
     struct MOUSE_DEC mdec;
     struct MEMMAN *memman = (struct MEMMAN *) MEMMAN_ADDR;
@@ -24,15 +21,14 @@ void HariMain(void) {
     struct SHTCTL *shtctl;
     struct SHEET *sht_back;
     struct SHEET *sht_mouse;
-    struct SHEET *sht_win;
     struct SHEET *sht_cons[2];
     unsigned char *buf_back;
     unsigned char buf_mouse[256];
-    unsigned char *buf_win;
     unsigned char *buf_cons[2];
 
     struct FIFO32 fifo;
     struct FIFO32 keycmd;
+    int *cons_fifo[2];
 
     struct TIMER *timer;
 
@@ -42,8 +38,8 @@ void HariMain(void) {
     struct SHEET *key_win;
 
     static char keytable0[] = {
-        0, 0, '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '^', 0, 0,
-        'Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', '@', '[', 0, 0, 'A', 'S',
+        0, 0, '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '^', 0x08, 0,
+        'Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', '@', '[', 0x0a, 0, 'A', 'S',
         'D', 'F', 'G', 'H', 'J', 'K', 'L', ';', ':', 0, 0, ']', 'Z', 'X', 'C', 'V',
         'B', 'N', 'M', ',', '.', '/', 0, '*', 0, ' ', 0, 0, 0, 0, 0, 0,
         0, 0, 0, 0, 0, 0, 0, '7', '8', '9', '-', '4', '5', '6', '+', '1',
@@ -52,8 +48,8 @@ void HariMain(void) {
         0, 0, 0, 0x5c, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x5c, 0, 0,
     };
     static char keytable1[] = {
-        0, 0, '!', 0x22, '#', '$', '%', '&', 0x27, '(', ')', '~', '=', '~', 0, 0,
-        'Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', '`', '{', 0, 0, 'A', 'S',
+        0, 0, '!', 0x22, '#', '$', '%', '&', 0x27, '(', ')', '~', '=', '~', 0x08, 0,
+        'Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', '`', '{', 0x0a, 0, 'A', 'S',
         'D', 'F', 'G', 'H', 'J', 'K', 'L', '+', '*', 0, 0, '}', 'Z', 'X', 'C', 'V',
         'B', 'N', 'M', '<', '>', '?', 0, '*', 0, ' ', 0, 0, 0, 0, 0, 0,
         0, 0, 0, 0, 0, 0, 0, '7', '8', '9', '-', '4', '5', '6', '+', '1',
@@ -146,6 +142,9 @@ void HariMain(void) {
         task_run(task_cons[i], 2, 2); //level=2, priority=2
         sht_cons[i]->task = task_cons[i];
         sht_cons[i]->flags |= 0x20; //カーソルあり
+
+        cons_fifo[i] = (int *) memman_alloc_4k(memman, 128 * 4);
+        fifo32_init(&task_cons[i]->fifo, 128, cons_fifo[i], task_cons[i]);
     }
 
     sheet_slide(sht_back, 0, 0);
