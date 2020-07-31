@@ -11,10 +11,10 @@ LS = ../../../scripts/app.lds
 
 TARGET_DIR = ../../../bin/app
 DIST_DIR = $(TARGET_DIR)/dist
-TMP_DIR = $(TARGET_DIR)/tmp/beepdown
+TMP_DIR = $(TARGET_DIR)/tmp/color
 
-APP = $(DIST_DIR)/beepdown
-APP_SRC = beepdown.c
+APP = $(DIST_DIR)/color
+APP_SRC = color.c
 
 $(APP): $(APP_SRC) $(LIB)
 	mkdir -p $(DIST_DIR)
