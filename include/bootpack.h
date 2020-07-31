@@ -318,6 +318,8 @@ struct TASK {
     int priority;
     struct FIFO32 fifo;
     struct TSS32 tss;
+    struct CONSOLE *cons; //そのタスクのconsole
+    int ds_base; //そのタスクで実行したアプリのデータセグメントを記録しておく番地
 };
 
 struct TASKLEVEL {
@@ -390,8 +392,8 @@ int *hrb_api(int edi, int esi, int ebp, int esp, int ebx, int edx, int ecx, int 
 int *inthandler0d(int *esp);
 void hrb_api_linewin(struct SHEET *sht, int x0, int y0, int x1, int y1, int col);
 
-int keywin_on(struct SHEET *key_win, struct SHEET *sht_win, int cur_c);
-int keywin_off(struct SHEET *key_win, struct SHEET *sht_win, int cur_c, int cur_x);
+void keywin_on(struct SHEET *key_win);
+void keywin_off(struct SHEET *key_win);
 
 //window.c
 void make_window8(unsigned char *buf, int xsize, int ysize, char *title, char act);

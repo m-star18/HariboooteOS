@@ -6,7 +6,6 @@ void console_task(struct SHEET *sheet, unsigned int memtotal) {
 
     int i;
     int x, y;
-    int fifobuf[128];
     struct CONSOLE cons;
     char cmdline[30];
     cons.sht = sheet;
@@ -14,18 +13,17 @@ void console_task(struct SHEET *sheet, unsigned int memtotal) {
     cons.cur_y = 28;
     cons.cur_c = -1;
 
-    *((int *) 0xfec) = (int) & cons;
+    //TASK構造体にコンソールの情報を記録しておく
+    task->cons = &cons;
 
     struct MEMMAN *memman = (struct MEMMAN *) MEMMAN_ADDR;
 
     int *fat = (int *) memman_alloc_4k(memman, 4 * 2880);
     file_readfat(fat, (unsigned char *) (ADR_DISKIMG + 0x000200));
 
-    fifo32_init(&task->fifo, 128, fifobuf, task);
-
-    timer = timer_alloc();
-    timer_init(timer, &task->fifo, 1);
-    timer_settime(timer, 50);
+    cons.timer = timer_alloc();
+    timer_init(cons.timer, &task->fifo, 1);
+    timer_settime(cons.timer, 50);
 
     cons_putchar(&cons, '>', 1);
 
@@ -41,16 +39,16 @@ void console_task(struct SHEET *sheet, unsigned int memtotal) {
 
             if (i <= 1) {
                 if (i != 0) {
-                    timer_init(timer, &task->fifo, 0);
+                    timer_init(cons.timer, &task->fifo, 0);
                     if (cons.cur_c >= 0)
                         cons.cur_c = COL8_FFFFFF;
 
                 } else {
-                    timer_init(timer, &task->fifo, 1);
+                    timer_init(cons.timer, &task->fifo, 1);
                     if (cons.cur_c >= 0)
                         cons.cur_c = COL8_000000;
                 }
-                timer_settime(timer, 50);
+                timer_settime(cons.timer, 50);
             }
 
             if (i == 2) //cursor on
@@ -270,7 +268,6 @@ int cmd_app(struct CONSOLE *cons, int *fat, char *cmdline) {
 
     if (finfo != 0) {
         p = (char *) memman_alloc_4k(memman, finfo->size);
-        *((int *) 0xfe8) = (int) p;
         file_loadfile(finfo->clustno, finfo->size, p, fat, (char *) (ADR_DISKIMG + 0x003e00));
 
         //シグネチャのチェックと、mainを呼び出すように書き換え
@@ -289,13 +286,13 @@ int cmd_app(struct CONSOLE *cons, int *fat, char *cmdline) {
             q = (char *) memman_alloc_4k(memman, segsiz);
 
             //データセグメントを覚えておく(システムコールされたときにアプリケーションのデータのアクセスするのに必要)
-            *((int *) 0xfe8) = (int) q;
+            task->ds_base = (int) q;
 
             //0x60を足すのは、アプリのセグメントであるとあつかうため
             //コードセグメント
-            set_segmdesc(gdt + 1003, finfo->size - 1, (int) p, AR_CODE32_ER + 0x60);
+            set_segmdesc(gdt + task->sel / 8 + 1000, finfo->size - 1, (int) p, AR_CODE32_ER + 0x60);
             //データセグメント
-            set_segmdesc(gdt + 1004,  segsiz - 1, (int) q, AR_DATA32_RW + 0x60);
+            set_segmdesc(gdt + task->sel / 8 + 2000, segsiz - 1, (int) q, AR_DATA32_RW + 0x60);
 
             //データセクションからデータセグメントにコピー
             for (i = 0; i < datsiz; i++)
@@ -303,7 +300,7 @@ int cmd_app(struct CONSOLE *cons, int *fat, char *cmdline) {
 
             //権限による制御を使う場合は、TSSにOS用のセグメントと、ESPを登録する必要がある(P438)
             //0x1bから始めるのは、その位置(実際にはヘッダ内)に、mainへのjmp命令が埋め込まれてるから
-            start_app(0x1b, 1003 * 8, esp, 1004 * 8, &(task->tss.esp0));
+            start_app(0x1b, task->sel + 1000 * 8, esp, task->sel + 2000 * 8, &(task->tss.esp0));
             shtctl = (struct SHTCTL *) *((int *) 0xfe4);
 
             for (i = 0; i < MAX_SHEETS; i++) {
@@ -337,10 +334,10 @@ void cons_putstr1(struct CONSOLE *cons, char *str, int l) {
 }
 
 int *hrb_api(int edi, int esi, int ebp, int esp, int ebx, int edx, int ecx, int eax) {
-    int ds_base = *((int *) 0xfe8);
     struct TASK *task = task_now();
-    struct CONSOLE *cons = (struct CONSOLE *) *((int *)0xfec);
-    struct SHTCTL *shtctl = (struct SHTCTL *) *((int *)0xfe4);
+    int ds_base = task->ds_base;
+    struct CONSOLE *cons = task->cons;
+    struct SHTCTL *shtctl = (struct SHTCTL *) *((int *) 0xfe4);
     struct SHEET *sht;
 
     int i;
@@ -377,8 +374,8 @@ int *hrb_api(int edi, int esi, int ebp, int esp, int ebx, int edx, int ecx, int 
         sht->flags |= 0x10;
         sheet_setbuf(sht, (char *) ebx + ds_base, esi, edi, eax);
         make_window8((char *) ebx + ds_base, esi, edi, (char *) ecx + ds_base, 0);
-        sheet_slide(sht, 100, 50);
-        sheet_updown(sht, 3);
+        sheet_slide(sht, (shtctl->xsize - esi) / 2, (shtctl->ysize - edi) / 2); //中央に移動、画面サイズ - ウィンドウサイズ / 2
+        sheet_updown(sht, shtctl->top - 1); //マウスと同じ高さになるようにする（マウスはこの上になる）
         reg[7] = (int) sht;
 
     } else if (edx == 6) {
@@ -526,21 +523,51 @@ int *hrb_api(int edi, int esi, int ebp, int esp, int ebx, int edx, int ecx, int 
         reg[7] = (int) timer_alloc();
         ((struct TIMER *) reg[7])->flags2 = 1; //自動キャンセル有効
 
-    } else if (edx == 17)
+    } else if (edx == 17) {
+        /*
+         * ebx : timer
+         * eax : data
+         * */
         timer_init((struct TIMER *) ebx, &task->fifo, eax + 256);
 
-    else if (edx == 18)
+    } else if (edx == 18) {
+        /*
+         * ebx: timer
+         * eax : time
+         * */
         timer_settime((struct TIMER *) ebx, eax);
 
-    else if (edx == 19)
+    } else if (edx == 19) {
+        /*
+         * ebx : timer
+         * */
         timer_free((struct TIMER *) ebx);
+
+    } else if (edx == 20) {
+        /* BEEP
+         * eax : frequency(mHz)
+         * */
+        if (eax == 0) {
+            //消音
+            i = io_in8(0x61);
+            io_out8(0x61, i & 0x0d);
+
+        } else {
+            i = 1193180000 / eax;
+            io_out8(0x43, 0xb6);
+            io_out8(0x42, i & 0xff);
+            io_out8(0x42, i >> 8);
+            i = io_in8(0x61);
+            io_out8(0x61, (i | 0x03) & 0x0f);
+        }
+    }
 
     return 0;
 }
 
 int *inthandler0d(int *esp) {
     struct TASK *task = task_now();
-    struct CONSOLE *cons = (struct CONSOLE *) *((int *) 0xfec);
+    struct CONSOLE *cons = task->cons;
     char str[30];
 
     cons_putstr0(cons, "\nINT 0D : \n General Protected Exception.\n");
@@ -552,7 +579,7 @@ int *inthandler0d(int *esp) {
 
 int *inthandler0c(int *esp) {
     struct TASK *task = task_now();
-    struct CONSOLE *cons = (struct CONSOLE *) *((int *) 0xfec);
+    struct CONSOLE *cons = task->cons;
     char str[30];
 
     cons_putstr0(cons, "\nINT 0C : \n Stack Exception.\n");
