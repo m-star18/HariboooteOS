@@ -526,14 +526,44 @@ int *hrb_api(int edi, int esi, int ebp, int esp, int ebx, int edx, int ecx, int 
         reg[7] = (int) timer_alloc();
         ((struct TIMER *) reg[7])->flags2 = 1; //自動キャンセル有効
 
-    } else if (edx == 17)
+    } else if (edx == 17) {
+        /*
+         * ebx : timer
+         * eax : data
+         * */
         timer_init((struct TIMER *) ebx, &task->fifo, eax + 256);
 
-    else if (edx == 18)
+    } else if (edx == 18) {
+        /*
+         * ebx: timer
+         * eax : time
+         * */
         timer_settime((struct TIMER *) ebx, eax);
 
-    else if (edx == 19)
+    } else if (edx == 19) {
+        /*
+         * ebx : timer
+         * */
         timer_free((struct TIMER *) ebx);
+
+    } else if (edx == 20) {
+        /* BEEP
+         * eax : frequency(mHz)
+         * */
+        if (eax == 0) {
+            //消音
+            i = io_in8(0x61);
+            io_out8(0x61, i & 0x0d);
+
+        } else {
+            i = 1193180000 / eax;
+            io_out8(0x43, 0xb6);
+            io_out8(0x42, i & 0xff);
+            io_out8(0x42, i >> 8);
+            i = io_in8(0x61);
+            io_out8(0x61, (i | 0x03) & 0x0f);
+        }
+    }
 
     return 0;
 }
