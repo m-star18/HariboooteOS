@@ -293,9 +293,9 @@ int cmd_app(struct CONSOLE *cons, int *fat, char *cmdline) {
 
             //0x60を足すのは、アプリのセグメントであるとあつかうため
             //コードセグメント
-            set_segmdesc(gdt + 1003, finfo->size - 1, (int) p, AR_CODE32_ER + 0x60);
+            set_segmdesc(gdt + task->sel / 8 + 1000, finfo->size - 1, (int) p, AR_CODE32_ER + 0x60);
             //データセグメント
-            set_segmdesc(gdt + 1004,  segsiz - 1, (int) q, AR_DATA32_RW + 0x60);
+            set_segmdesc(gdt + task->sel / 8 + 2000, segsiz - 1, (int) q, AR_DATA32_RW + 0x60);
 
             //データセクションからデータセグメントにコピー
             for (i = 0; i < datsiz; i++)
@@ -303,7 +303,7 @@ int cmd_app(struct CONSOLE *cons, int *fat, char *cmdline) {
 
             //権限による制御を使う場合は、TSSにOS用のセグメントと、ESPを登録する必要がある(P438)
             //0x1bから始めるのは、その位置(実際にはヘッダ内)に、mainへのjmp命令が埋め込まれてるから
-            start_app(0x1b, 1003 * 8, esp, 1004 * 8, &(task->tss.esp0));
+            start_app(0x1b, task->sel + 1000 * 8, esp, task->sel + 2000 * 8, &(task->tss.esp0));
             shtctl = (struct SHTCTL *) *((int *) 0xfe4);
 
             for (i = 0; i < MAX_SHEETS; i++) {
