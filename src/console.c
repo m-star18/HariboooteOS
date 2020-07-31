@@ -14,7 +14,8 @@ void console_task(struct SHEET *sheet, unsigned int memtotal) {
     cons.cur_y = 28;
     cons.cur_c = -1;
 
-    *((int *) 0xfec) = (int) & cons;
+    //TASK構造体にコンソールの情報を記録しておく
+    task->cons = &cons;
 
     struct MEMMAN *memman = (struct MEMMAN *) MEMMAN_ADDR;
 
@@ -270,7 +271,6 @@ int cmd_app(struct CONSOLE *cons, int *fat, char *cmdline) {
 
     if (finfo != 0) {
         p = (char *) memman_alloc_4k(memman, finfo->size);
-        *((int *) 0xfe8) = (int) p;
         file_loadfile(finfo->clustno, finfo->size, p, fat, (char *) (ADR_DISKIMG + 0x003e00));
 
         //シグネチャのチェックと、mainを呼び出すように書き換え
@@ -289,7 +289,7 @@ int cmd_app(struct CONSOLE *cons, int *fat, char *cmdline) {
             q = (char *) memman_alloc_4k(memman, segsiz);
 
             //データセグメントを覚えておく(システムコールされたときにアプリケーションのデータのアクセスするのに必要)
-            *((int *) 0xfe8) = (int) q;
+            task->ds_base = (int) q;
 
             //0x60を足すのは、アプリのセグメントであるとあつかうため
             //コードセグメント
@@ -337,10 +337,10 @@ void cons_putstr1(struct CONSOLE *cons, char *str, int l) {
 }
 
 int *hrb_api(int edi, int esi, int ebp, int esp, int ebx, int edx, int ecx, int eax) {
-    int ds_base = *((int *) 0xfe8);
     struct TASK *task = task_now();
-    struct CONSOLE *cons = (struct CONSOLE *) *((int *)0xfec);
-    struct SHTCTL *shtctl = (struct SHTCTL *) *((int *)0xfe4);
+    int ds_base = task->ds_base;
+    struct CONSOLE *cons = task->cons;
+    struct SHTCTL *shtctl = (struct SHTCTL *) *((int *) 0xfe4);
     struct SHEET *sht;
 
     int i;
@@ -570,7 +570,7 @@ int *hrb_api(int edi, int esi, int ebp, int esp, int ebx, int edx, int ecx, int 
 
 int *inthandler0d(int *esp) {
     struct TASK *task = task_now();
-    struct CONSOLE *cons = (struct CONSOLE *) *((int *) 0xfec);
+    struct CONSOLE *cons = task->cons;
     char str[30];
 
     cons_putstr0(cons, "\nINT 0D : \n General Protected Exception.\n");
@@ -582,7 +582,7 @@ int *inthandler0d(int *esp) {
 
 int *inthandler0c(int *esp) {
     struct TASK *task = task_now();
-    struct CONSOLE *cons = (struct CONSOLE *) *((int *) 0xfec);
+    struct CONSOLE *cons = task->cons;
     char str[30];
 
     cons_putstr0(cons, "\nINT 0C : \n Stack Exception.\n");

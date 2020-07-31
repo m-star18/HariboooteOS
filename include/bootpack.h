@@ -318,6 +318,8 @@ struct TASK {
     int priority;
     struct FIFO32 fifo;
     struct TSS32 tss;
+    struct CONSOLE *cons; //そのタスクのconsole
+    int ds_base; //そのタスクで実行したアプリのデータセグメントを記録しておく番地
 };
 
 struct TASKLEVEL {
