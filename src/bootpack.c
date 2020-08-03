@@ -11,6 +11,8 @@ void HariMain(void) {
     int x, y;
     int mmx = -1, mmy = -1;
     int mmx2;
+    int new_mx = -1, new_my = 0;
+    int new_wx = 0x7fffffff, new_wy = 0;
     unsigned int memtotal;
 
     struct BOOTINFO *binfo = (struct BOOTINFO *) ADR_BOOTINFO;
@@ -30,8 +32,6 @@ void HariMain(void) {
     struct FIFO32 fifo;
     struct FIFO32 keycmd;
     int *cons_fifo[2];
-
-    struct TIMER *timer;
 
     struct CONSOLE *cons;
 
@@ -176,8 +176,23 @@ void HariMain(void) {
 
         io_cli();
         if (fifo32_status(&fifo) == 0) {
-            task_sleep(task_a);
-            io_sti();
+            //保留している描画があれば実行する
+            if (new_mx >= 0) {
+                io_sti();
+                //移動中はとりあえずnew_mx, new_myに移動先の座標を覚えているので、ここで描画する
+                sheet_slide(sht_mouse, new_mx, new_my);
+                new_mx = -1;
+
+            //0x7fffffffを使うのは、ウインドウの座標はマイナス値を取ることがあるから
+            } else if (new_wx != 0x7fffffff) {
+                io_sti();
+                sheet_slide(sht, new_wx, new_wy);
+                new_wx = 0x7fffffff;
+
+            } else {
+                task_sleep(task_a);
+                io_sti();
+            }
 
         } else {
             i = fifo32_get(&fifo);
@@ -287,6 +302,9 @@ void HariMain(void) {
                     //移動後の描画
                     sheet_slide(sht_mouse, mx, my);
 
+                    new_mx = mx;
+                    new_my = my;
+
                     //左クリック
                     if ((mdec.btn & 0x01) != 0) {
                         //通常モード
@@ -316,6 +334,8 @@ void HariMain(void) {
                                             mmy = my;
                                             //もとの位置を覚えておく
                                             mmx2 = sht->vx0;
+
+                                            new_wy = sht->vy0;
                                         }
 
                                         //閉じるボタンのクリック
@@ -338,10 +358,16 @@ void HariMain(void) {
                             }
                         } else {
                             //ウインドウ移動モード
+
                             //マウスの移動量を計算して移動
                             x = mx - mmx;
                             y = my - mmy;
-                            sheet_slide(sht, (mmx2 + x + 2) & ~3, sht->vy0 + y);
+
+                            //xは高速化のために4で丸める(切り捨てにならないように2を足す)
+                            //もとの位置を覚えておいて移動量が4の倍数になるようにする
+                            //ここでnew_wx, new_wyにウインドウの移動位置を覚えておいて、FIFOが空のときにslideを実行する
+                            new_wx = (mmx2 + x + 2) & ~3;
+                            new_wy = new_wy + y;
 
                             //移動先の座標に更新
                             mmy = my;
@@ -349,6 +375,12 @@ void HariMain(void) {
                     } else {
                         //左ボタンを押していない
                         mmx = -1; //通常モードにする
+
+                        //ボタンを離したときは、FIFOが空でなくてもすぐに描画する
+                        if (new_wx != 0x7fffffff) {
+                            sheet_slide(sht, new_wx, new_wy); //一度確定させる
+                            new_wx = 0x7fffffff;
+                        }
                     }
                 }
             }
