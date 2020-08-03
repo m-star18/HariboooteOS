@@ -198,6 +198,8 @@ void sheet_refreshmap(struct SHTCTL *ctl, int vx0, int vy0, int vx1, int vy1, in
     int vx, vy;
     int bx0, by0;
     int bx1, by1;
+    int sid4;
+    int *p;
 
     unsigned char *buf;
     unsigned char sid;
@@ -229,11 +231,26 @@ void sheet_refreshmap(struct SHTCTL *ctl, int vx0, int vy0, int vx1, int vy1, in
 
         if (sht->col_inv == -1) {
             //透明色がない場合、書くピクセルの判定をせずに描画することで高速化
-            for (by = 0; by < by1; by++) {
-                vy = sht->vy0 + by;
-                for (bx = bx0; bx < bx1; bx++) {
-                    vx = sht->vx0 + bx;
-                    map[vy * ctl->xsize + vx] = sid;
+            //4byteずつ書き込むとさらに高速化できる
+            if ((sht->vx0 & 3) == 0 && (bx0 & 3) == 0 && (bx1 & 3) == 0) {
+                bx1 = (bx1 - bx0) / 4; //mov回数(4byteずつmovするので)
+
+                sid4 = sid | sid << 8 | sid << 16 | sid << 24;
+                for (by = by0; by < by1; by++) {
+                    vy = sht->vy0 + by;
+                    vx = sht->vx0 + bx0;
+                    p = (int *) &map[vy * ctl->xsize + vx];
+                    for (bx = 0; bx < bx1; bx++)
+                        p[bx] = sid4;
+                }
+
+            } else {
+                for (by = 0; by < by1; by++) {
+                    vy = sht->vy0 + by;
+                    for (bx = bx0; bx < bx1; bx++) {
+                        vx = sht->vx0 + bx;
+                        map[vy * ctl->xsize + vx] = sid;
+                    }
                 }
             }
 

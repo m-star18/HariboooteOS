@@ -10,6 +10,7 @@ void HariMain(void) {
     int i, j;
     int x, y;
     int mmx = -1, mmy = -1;
+    int mmx2;
     unsigned int memtotal;
 
     struct BOOTINFO *binfo = (struct BOOTINFO *) ADR_BOOTINFO;
@@ -313,6 +314,8 @@ void HariMain(void) {
                                             //ウインドウ移動モードにする
                                             mmx = mx;
                                             mmy = my;
+                                            //もとの位置を覚えておく
+                                            mmx2 = sht->vx0;
                                         }
 
                                         //閉じるボタンのクリック
@@ -338,10 +341,9 @@ void HariMain(void) {
                             //マウスの移動量を計算して移動
                             x = mx - mmx;
                             y = my - mmy;
-                            sheet_slide(sht, sht->vx0 + x, sht->vy0 + y);
+                            sheet_slide(sht, (mmx2 + x + 2) & ~3, sht->vy0 + y);
 
                             //移動先の座標に更新
-                            mmx = mx;
                             mmy = my;
                         }
                     } else {
