@@ -394,6 +394,7 @@ void hrb_api_linewin(struct SHEET *sht, int x0, int y0, int x1, int y1, int col)
 
 void keywin_on(struct SHEET *key_win);
 void keywin_off(struct SHEET *key_win);
+struct SHEET *open_console(struct SHTCTL *shtctl, unsigned int memtotal);
 
 //window.c
 void make_window8(unsigned char *buf, int xsize, int ysize, char *title, char act);
