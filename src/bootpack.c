@@ -24,14 +24,12 @@ void HariMain(void) {
     struct SHTCTL *shtctl;
     struct SHEET *sht_back;
     struct SHEET *sht_mouse;
-    struct SHEET *sht_cons[2];
     unsigned char *buf_back;
     unsigned char buf_mouse[256];
     unsigned char *buf_cons[2];
 
     struct FIFO32 fifo;
     struct FIFO32 keycmd;
-    int *cons_fifo[2];
 
     struct CONSOLE *cons;
 
@@ -61,9 +59,7 @@ void HariMain(void) {
 
     struct TASK *task;
     struct TASK *task_a;
-    struct TASK *task_cons[2];
 
-    int key_to = 0; //どのタスクに入力するか
     int key_shift = 0; //shiftの入力状態
     int key_leds = (binfo->leds >> 4) & 7; //キーボードの状態
     /*
@@ -122,15 +118,14 @@ void HariMain(void) {
     my = (binfo->scrny - 28 - 16) / 2;
 
     //console
-    sht_cons[0] = open_console(shtctl, memtotal);
-    sht_cons[1] = 0;
+    key_win = open_console(shtctl, memtotal);
 
     sheet_slide(sht_back, 0, 0);
-    sheet_slide(sht_cons[0], 32, 4);
+    sheet_slide(key_win, 32, 4);
     sheet_slide(sht_mouse, mx, my);
 
     sheet_updown(sht_back, 0);
-    sheet_updown(sht_cons[0], 1);
+    sheet_updown(key_win, 1);
     sheet_updown(sht_mouse, 2);
 
     //最初に設定しておく
@@ -138,7 +133,6 @@ void HariMain(void) {
     fifo32_put(&keycmd, key_leds);
 
     //とりあえず初期値はコンソールにしておく
-    key_win = sht_cons[0];
     keywin_on(key_win);
 
     for (;;) {
@@ -250,12 +244,11 @@ void HariMain(void) {
                         io_sti();
                     }
                 }
-                if (i == 256 + 0x3c && key_shift != 0 && sht_cons[1] == 0) { //shift + F2
-                    sht_cons[1] = open_console(shtctl, memtotal);
-                    sheet_slide(sht_cons[1], 32, 4);
-                    sheet_updown(sht_cons[1], shtctl->top);
+                if (i == 256 + 0x3c && key_shift != 0) { //shift + F2
                     keywin_off(key_win);
-                    key_win = sht_cons[1];
+                    key_win = open_console(shtctl, memtotal);
+                    sheet_slide(key_win, 32, 4);
+                    sheet_updown(key_win, shtctl->top);
                     keywin_on(key_win);
                 }
                 if (i == 256 + 0x57 && shtctl->top > 2) //F11
