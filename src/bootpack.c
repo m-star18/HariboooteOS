@@ -10,29 +10,23 @@ void HariMain(void) {
     int i, j;
     int x, y;
     int mmx = -1, mmy = -1;
+    int mmx2;
+    int new_mx = -1, new_my = 0;
+    int new_wx = 0x7fffffff, new_wy = 0;
     unsigned int memtotal;
 
     struct BOOTINFO *binfo = (struct BOOTINFO *) ADR_BOOTINFO;
     struct MOUSE_DEC mdec;
     struct MEMMAN *memman = (struct MEMMAN *) MEMMAN_ADDR;
 
-    struct SEGMENT_DESCRIPTOR *gdt = (struct SEGMENT_DESCRIPTOR *) ADR_GDT;
-
     struct SHTCTL *shtctl;
     struct SHEET *sht_back;
     struct SHEET *sht_mouse;
-    struct SHEET *sht_cons[2];
     unsigned char *buf_back;
     unsigned char buf_mouse[256];
-    unsigned char *buf_cons[2];
 
     struct FIFO32 fifo;
     struct FIFO32 keycmd;
-    int *cons_fifo[2];
-
-    struct TIMER *timer;
-
-    struct CONSOLE *cons;
 
     struct SHEET *sht = 0;
     struct SHEET *key_win;
@@ -60,9 +54,7 @@ void HariMain(void) {
 
     struct TASK *task;
     struct TASK *task_a;
-    struct TASK *task_cons[2];
 
-    int key_to = 0; //どのタスクに入力するか
     int key_shift = 0; //shiftの入力状態
     int key_leds = (binfo->leds >> 4) & 7; //キーボードの状態
     /*
@@ -106,6 +98,7 @@ void HariMain(void) {
     init_palette();
     shtctl = shtctl_init(memman, binfo->vram, binfo->scrnx, binfo->scrny);
     *((int *) 0xfe4) = (int) shtctl;
+    *((int *) 0xfec) = (int) & fifo;
 
     //back
     sht_back = sheet_alloc(shtctl);
@@ -121,48 +114,21 @@ void HariMain(void) {
     my = (binfo->scrny - 28 - 16) / 2;
 
     //console
-    for (i = 0; i < 2; i++) {
-        sht_cons[i] = sheet_alloc(shtctl);
-        buf_cons[i] = (unsigned char *) memman_alloc_4k(memman, 256 * 165);
-        sheet_setbuf(sht_cons[i], buf_cons[i], 256, 165, -1);
-        make_window8(buf_cons[i], 256, 165, "console", 0);
-        make_textbox8(sht_cons[i], 8, 28, 240, 128, COL8_000000);
-
-        task_cons[i] = task_alloc();
-        task_cons[i]->tss.esp = memman_alloc_4k(memman, 64 * 1024) + 64 * 1024 - 12;
-        task_cons[i]->tss.eip = (int) & console_task;
-        task_cons[i]->tss.es = 1 * 8;
-        task_cons[i]->tss.cs = 2 * 8;
-        task_cons[i]->tss.ss = 1 * 8;
-        task_cons[i]->tss.ds = 1 * 8;
-        task_cons[i]->tss.fs = 1 * 8;
-        task_cons[i]->tss.gs = 1 * 8;
-        *((int *) (task_cons[i]->tss.esp + 4)) = (int) sht_cons[i];
-        *((int *) (task_cons[i]->tss.esp + 8)) = (int) memtotal;
-        task_run(task_cons[i], 2, 2); //level=2, priority=2
-        sht_cons[i]->task = task_cons[i];
-        sht_cons[i]->flags |= 0x20; //カーソルあり
-
-        cons_fifo[i] = (int *) memman_alloc_4k(memman, 128 * 4);
-        fifo32_init(&task_cons[i]->fifo, 128, cons_fifo[i], task_cons[i]);
-    }
+    key_win = open_console(shtctl, memtotal);
 
     sheet_slide(sht_back, 0, 0);
-    sheet_slide(sht_cons[1], 56, 6);
-    sheet_slide(sht_cons[0], 8, 2);
+    sheet_slide(key_win, 32, 4);
     sheet_slide(sht_mouse, mx, my);
 
     sheet_updown(sht_back, 0);
-    sheet_updown(sht_cons[1], 1);
-    sheet_updown(sht_cons[0], 2);
-    sheet_updown(sht_mouse, 3);
+    sheet_updown(key_win, 1);
+    sheet_updown(sht_mouse, 2);
 
     //最初に設定しておく
     fifo32_put(&keycmd, KEYCMD_LED);
     fifo32_put(&keycmd, key_leds);
 
     //とりあえず初期値はコンソールにしておく
-    key_win = sht_cons[0];
     keywin_on(key_win);
 
     for (;;) {
@@ -175,17 +141,38 @@ void HariMain(void) {
 
         io_cli();
         if (fifo32_status(&fifo) == 0) {
-            task_sleep(task_a);
-            io_sti();
+            //保留している描画があれば実行する
+            if (new_mx >= 0) {
+                io_sti();
+                //移動中はとりあえずnew_mx, new_myに移動先の座標を覚えているので、ここで描画する
+                sheet_slide(sht_mouse, new_mx, new_my);
+                new_mx = -1;
+
+            //0x7fffffffを使うのは、ウインドウの座標はマイナス値を取ることがあるから
+            } else if (new_wx != 0x7fffffff) {
+                io_sti();
+                sheet_slide(sht, new_wx, new_wy);
+                new_wx = 0x7fffffff;
+
+            } else {
+                task_sleep(task_a);
+                io_sti();
+            }
 
         } else {
             i = fifo32_get(&fifo);
             io_sti();
 
-            if (key_win->flags == 0) { //入力ウィンドウが閉じられた(ウインドウがなくなっていた)
-                //2番目のウィンドウにむける
-                key_win = shtctl->sheets[shtctl->top - 1];
-                keywin_on(key_win);
+             if (key_win != 0 && key_win->flags == 0) { //入力ウィンドウが閉じられた(ウインドウがなくなっていた)
+                //マウスと背景しかない場合
+                if (shtctl->top == 1)
+                    key_win = 0;
+                //他のウィンドウがある場合
+                else {
+                    //2番目のウィンドウにむける
+                    key_win = shtctl->sheets[shtctl->top - 1];
+                    keywin_on(key_win);
+                }
             }
 
             //キーボード
@@ -209,7 +196,7 @@ void HariMain(void) {
                 }
 
                 //通常文字
-                if (str[0] != 0)
+                if (str[0] != 0 && key_win != 0)
                     fifo32_put(&key_win->task->fifo, str[0] + 256);
 
                 if (i == 256 + 0x0f) { //TAB
@@ -259,6 +246,15 @@ void HariMain(void) {
                         io_sti();
                     }
                 }
+                if (i == 256 + 0x3c && key_shift != 0) { //shift + F2
+                    if (key_win != 0)
+                        keywin_off(key_win);
+
+                    key_win = open_console(shtctl, memtotal);
+                    sheet_slide(key_win, 32, 4);
+                    sheet_updown(key_win, shtctl->top);
+                    keywin_on(key_win);
+                }
                 if (i == 256 + 0x57 && shtctl->top > 2) //F11
                     sheet_updown(shtctl->sheets[1], shtctl->top - 1);
 
@@ -270,7 +266,7 @@ void HariMain(void) {
                     io_out8(PORT_KEYDAT, keycmd_wait);
                 }
 
-                //マウス
+            //マウス
             } else if (i >= 512 && i <= 767) {
                 if (mouse_decode(&mdec, i - 512) != 0) {
                     //値の書き換え
@@ -285,6 +281,9 @@ void HariMain(void) {
 
                     //移動後の描画
                     sheet_slide(sht_mouse, mx, my);
+
+                    new_mx = mx;
+                    new_my = my;
 
                     //左クリック
                     if ((mdec.btn & 0x01) != 0) {
@@ -313,6 +312,10 @@ void HariMain(void) {
                                             //ウインドウ移動モードにする
                                             mmx = mx;
                                             mmy = my;
+                                            //もとの位置を覚えておく
+                                            mmx2 = sht->vx0;
+
+                                            new_wy = sht->vy0;
                                         }
 
                                         //閉じるボタンのクリック
@@ -327,6 +330,12 @@ void HariMain(void) {
                                                 task->tss.eax = (int) & (task->tss.esp0);
                                                 task->tss.eip = (int) asm_end_app;
                                                 io_sti();
+
+                                            } else {
+                                                task = sht->task;
+                                                io_cli();
+                                                fifo32_put(&task->fifo, 4);
+                                                io_sti();
                                             }
                                         }
                                         break;
@@ -335,21 +344,36 @@ void HariMain(void) {
                             }
                         } else {
                             //ウインドウ移動モード
+
                             //マウスの移動量を計算して移動
                             x = mx - mmx;
                             y = my - mmy;
-                            sheet_slide(sht, sht->vx0 + x, sht->vy0 + y);
+
+                            //xは高速化のために4で丸める(切り捨てにならないように2を足す)
+                            //もとの位置を覚えておいて移動量が4の倍数になるようにする
+                            //ここでnew_wx, new_wyにウインドウの移動位置を覚えておいて、FIFOが空のときにslideを実行する
+                            new_wx = (mmx2 + x + 2) & ~3;
+                            new_wy = new_wy + y;
 
                             //移動先の座標に更新
-                            mmx = mx;
                             mmy = my;
                         }
                     } else {
                         //左ボタンを押していない
                         mmx = -1; //通常モードにする
+
+                        //ボタンを離したときは、FIFOが空でなくてもすぐに描画する
+                        if (new_wx != 0x7fffffff) {
+                            sheet_slide(sht, new_wx, new_wy); //一度確定させる
+                            new_wx = 0x7fffffff;
+                        }
                     }
                 }
-            }
+            } else if (i >= 768 && i <= 1023) //consoleの終了処理(consoleでexitすると送られてくる)
+                close_console(shtctl->sheets0 + (i - 768));
+
+            else if (i >= 768 && i <= 1023) //consoleの終了処理(consoleウインドウを持っていない場合)
+                close_constask(taskctl->tasks0 + (i - 1024));
         }
     }
 }
@@ -366,4 +390,64 @@ void keywin_on(struct SHEET *key_win) {
 
     if ((key_win->flags & 0x20) != 0)
         fifo32_put(&key_win->task->fifo, 2); //カーソルをoffにするためにfifoにデータを送る
+}
+
+struct TASK *open_constask(struct SHEET *sht, unsigned int memtotal) {
+    struct MEMMAN *memman = (struct MEMMAN *) MEMMAN_ADDR;
+    struct TASK *task;
+    int *cons_fifo;
+
+    task = task_alloc();
+    task->cons_stack = memman_alloc_4k(memman, 64 * 1024);
+    task->tss.esp = task->cons_stack + 64 * 1024 - 12;
+    task->tss.eip = (int) & console_task;
+    task->tss.es = 1 * 8;
+    task->tss.cs = 2 * 8;
+    task->tss.ss = 1 * 8;
+    task->tss.ds = 1 * 8;
+    task->tss.fs = 1 * 8;
+    task->tss.gs = 1 * 8;
+    *((int *) (task->tss.esp + 4)) = (int) sht;
+    *((int *) (task->tss.esp + 8)) = (int) memtotal;
+    task_run(task, 2, 2); //level=2, priority=2
+
+    cons_fifo = (int *) memman_alloc_4k(memman, 128 * 4);
+    fifo32_init(&task->fifo, 128, cons_fifo, task);
+
+    return task;
+}
+
+struct SHEET *open_console(struct SHTCTL *shtctl, unsigned int memtotal) {
+    struct MEMMAN *memman = (struct MEMMAN *) MEMMAN_ADDR;
+    struct SHEET *sht;
+    unsigned char *buf;
+
+    sht = sheet_alloc(shtctl);
+    buf = (unsigned char *) memman_alloc_4k(memman, 256 * 165);
+    sheet_setbuf(sht, buf, 256, 165, -1);
+    make_window8(buf, 256, 165, "console", 0);
+    make_textbox8(sht, 8, 28, 240, 128, COL8_000000);
+
+    sht->task = open_constask(sht, memtotal);
+    sht->flags |= 0x20; //カーソルあり
+
+    return sht;
+}
+
+void close_constask(struct TASK *task) {
+    struct MEMMAN *memman = (struct MEMMAN *) MEMMAN_ADDR;
+
+    task_sleep(task);
+    memman_free_4k(memman, task->cons_stack, 64 * 1024);
+    memman_free_4k(memman, (int) task->fifo.buf, 128 * 4);
+    task->flags = 0; //task_free(task)の代わり
+}
+
+void close_console(struct SHEET *sht) {
+    struct MEMMAN *memman = (struct MEMMAN *) MEMMAN_ADDR;
+    struct TASK *task = sht->task;
+
+    memman_free_4k(memman, (int) sht->buf, 256 * 165);
+    sheet_free(sht);
+    close_constask(task);
 }
