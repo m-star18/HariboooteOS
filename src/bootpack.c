@@ -371,6 +371,9 @@ void HariMain(void) {
                 }
             } else if (i >= 768 && i <= 1023) //consoleの終了処理(consoleでexitすると送られてくる)
                 close_console(shtctl->sheets0 + (i - 768));
+
+            else if (i >= 768 && i <= 1023) //consoleの終了処理(consoleウインドウを持っていない場合)
+                close_constask(taskctl->tasks0 + (i - 1024));
         }
     }
 }
@@ -389,18 +392,10 @@ void keywin_on(struct SHEET *key_win) {
         fifo32_put(&key_win->task->fifo, 2); //カーソルをoffにするためにfifoにデータを送る
 }
 
-struct SHEET *open_console(struct SHTCTL *shtctl, unsigned int memtotal) {
+struct TASK *open_constask(struct SHEET *sht, unsigned int memtotal) {
     struct MEMMAN *memman = (struct MEMMAN *) MEMMAN_ADDR;
-    struct SHEET *sht;
-    unsigned char *buf;
     struct TASK *task;
     int *cons_fifo;
-
-    sht = sheet_alloc(shtctl);
-    buf = (unsigned char *) memman_alloc_4k(memman, 256 * 165);
-    sheet_setbuf(sht, buf, 256, 165, -1);
-    make_window8(buf, 256, 165, "console", 0);
-    make_textbox8(sht, 8, 28, 240, 128, COL8_000000);
 
     task = task_alloc();
     task->cons_stack = memman_alloc_4k(memman, 64 * 1024);
@@ -415,11 +410,26 @@ struct SHEET *open_console(struct SHTCTL *shtctl, unsigned int memtotal) {
     *((int *) (task->tss.esp + 4)) = (int) sht;
     *((int *) (task->tss.esp + 8)) = (int) memtotal;
     task_run(task, 2, 2); //level=2, priority=2
-    sht->task = task;
-    sht->flags |= 0x20; //カーソルあり
 
     cons_fifo = (int *) memman_alloc_4k(memman, 128 * 4);
     fifo32_init(&task->fifo, 128, cons_fifo, task);
+
+    return task;
+}
+
+struct SHEET *open_console(struct SHTCTL *shtctl, unsigned int memtotal) {
+    struct MEMMAN *memman = (struct MEMMAN *) MEMMAN_ADDR;
+    struct SHEET *sht;
+    unsigned char *buf;
+
+    sht = sheet_alloc(shtctl);
+    buf = (unsigned char *) memman_alloc_4k(memman, 256 * 165);
+    sheet_setbuf(sht, buf, 256, 165, -1);
+    make_window8(buf, 256, 165, "console", 0);
+    make_textbox8(sht, 8, 28, 240, 128, COL8_000000);
+
+    sht->task = open_constask(sht, memtotal);
+    sht->flags |= 0x20; //カーソルあり
 
     return sht;
 }

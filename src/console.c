@@ -21,10 +21,12 @@ void console_task(struct SHEET *sheet, unsigned int memtotal) {
     int *fat = (int *) memman_alloc_4k(memman, 4 * 2880);
     file_readfat(fat, (unsigned char *) (ADR_DISKIMG + 0x000200));
 
-    cons.timer = timer_alloc();
-    timer_init(cons.timer, &task->fifo, 1);
-    timer_settime(cons.timer, 50);
-
+    //コンソールウインドウを持たない場合はカーソル点滅不要
+    if (sheet != 0) {
+        cons.timer = timer_alloc();
+        timer_init(cons.timer, &task->fifo, 1);
+        timer_settime(cons.timer, 50);
+    }
     cons_putchar(&cons, '>', 1);
 
     for (;;) {
@@ -76,6 +78,9 @@ void console_task(struct SHEET *sheet, unsigned int memtotal) {
                     cons_newline(&cons);
                     cons_runcmd(cmdline, &cons, fat, memtotal);
 
+                    //コンソールウインドウがない場合、アプリの実行が終わったら終了させる
+                    if (sheet == 0)
+                        cmd_exit(&cons, fat);
                     //プロンプト表示
                     cons_putchar(&cons, '>', 1);
 
@@ -86,10 +91,13 @@ void console_task(struct SHEET *sheet, unsigned int memtotal) {
                     }
                 }
             }
-            if (cons.cur_c >= 0)
-               boxfill8(sheet->buf, sheet->bxsize, cons.cur_c, cons.cur_x, cons.cur_y, cons.cur_x + 7, cons.cur_y + 15);
-
-            sheet_refresh(sheet, cons.cur_x, cons.cur_y, cons.cur_x + 8, cons.cur_y + 16);
+            //コンソールウインドウを持たない場合はカーソル再表示不要
+            if (sheet != 0) {
+                //カーソル再表示
+                if (cons.cur_c >= 0)
+                    boxfill8(sheet->buf, sheet->bxsize, cons.cur_c, cons.cur_x, cons.cur_y, cons.cur_x + 7, cons.cur_y + 15);
+                sheet_refresh(sheet, cons.cur_x, cons.cur_y, cons.cur_x + 8, cons.cur_y + 16);
+            }
         }
     }
 }
@@ -102,19 +110,27 @@ void cons_putchar(struct CONSOLE *cons, int chr, char move) {
     //tab
     if (str[0] == 0x09) {
         for (;;) {
-            putfonts8_asc_sht(cons->sht, cons->cur_x, cons->cur_y, COL8_FFFFFF, COL8_000000, " ", 1);
+            //コンソールウインドウを持たない場合は表示不要
+            if (cons->sht != 0)
+                putfonts8_asc_sht(cons->sht, cons->cur_x, cons->cur_y, COL8_FFFFFF, COL8_000000, " ", 1);
             cons->cur_x += 8;
             if (cons->cur_x == 8 + 240)
                 cons_newline(cons);
+
             if (((cons->cur_x - 8) & 0x1f) == 0)
                 break; //32で割り切れたら
         }
     //LF
     } else if (str[0] == 0x0a)
         cons_newline(cons);
+
     else if (str[0] == 0x0d);
+
     else {
-        putfonts8_asc_sht(cons->sht, cons->cur_x, cons->cur_y, COL8_FFFFFF, COL8_000000, str, 1);
+        //コンソールウインドウを持たない場合は表示不要
+        if (cons->sht != 0)
+            putfonts8_asc_sht(cons->sht, cons->cur_x, cons->cur_y, COL8_FFFFFF, COL8_000000, str, 1);
+
         if (move != 0) { //moveが0のときはカーソルを進めない
             cons->cur_x += 8;
             if (cons->cur_x == 8 + 240)
@@ -131,15 +147,18 @@ void cons_newline(struct CONSOLE *cons) {
         cons->cur_y += 16;
 
     else { //scroll
-        for (y = 28; y < 28 + 112; y++) {
-            for (x = 8; x < 8 + 240; x++)
-                sheet->buf[x + y * sheet->bxsize] = sheet->buf[x + (y + 16) * sheet->bxsize];
+        //コンソールウインドウを持たない場合は表示不要
+        if (cons->sht != 0) {
+            for (y = 28; y < 28 + 112; y++) {
+                for (x = 8; x < 8 + 240; x++)
+                    sheet->buf[x + y * sheet->bxsize] = sheet->buf[x + (y + 16) * sheet->bxsize];
+            }
+            for (y = 28 + 112; y < 28 + 128; y++) {
+                for (x = 8; x < 8 + 240; x++)
+                    sheet->buf[x + y * sheet->bxsize] = COL8_000000;
+            }
+            sheet_refresh(sheet, 8, 28, 8 + 240, 28 + 128);
         }
-        for (y = 28 + 112; y < 28 + 128; y++) {
-            for (x = 8; x < 8 + 240; x++)
-                sheet->buf[x + y * sheet->bxsize] = COL8_000000;
-        }
-        sheet_refresh(sheet, 8, 28, 8 + 240, 28 + 128);
     }
     cons->cur_x = 8;
 }
@@ -162,6 +181,9 @@ void cons_runcmd(char *cmdline, struct CONSOLE *cons, int *fat, unsigned int mem
 
     else if (_strncmp(cmdline, "start ", 6) == 0)
         cmd_start(cons, cmdline, memtotal);
+
+    else if (_strncmp(cmdline, "ncst ", 5) == 0)
+        cmd_ncst(cons, cmdline, memtotal);
 
     else if (cmdline[0] != 0) {
         if (cmd_app(cons, fat, cmdline) == 0)
@@ -235,7 +257,7 @@ void cmd_type(struct CONSOLE *cons, int *fat, char *cmdline) {
 }
 
 void cmd_exit(struct CONSOLE *cons, int *fat) {
-    struct MEMMAN *memman = (struct MEMMAN *)MEMMAN_ADDR;
+    struct MEMMAN *memman = (struct MEMMAN *) MEMMAN_ADDR;
     struct TASK *task = task_now();
     struct SHTCTL *shtctl = (struct SHTCTL *) *((int *) 0x0fe4);
     struct FIFO32 *fifo = (struct FIFO32 *) *((int *) 0x0fec);
@@ -243,7 +265,14 @@ void cmd_exit(struct CONSOLE *cons, int *fat) {
     timer_cancel(cons->timer);
     memman_free_4k(memman, (int) fat, 4 * 2880);
     io_cli();
-    fifo32_put(fifo, cons->sht - shtctl->sheets0 + 768); //768 - 1023
+
+    if (cons->sht != 0)
+        fifo32_put(fifo, cons->sht - shtctl->sheets0 + 768); //768 - 1023
+
+    else {
+        //コンソールウインドウがない場合
+        fifo32_put(fifo, task - taskctl->tasks0 + 1024); //1024 - 2023
+    }
     io_sti();
     for (;;)
         task_sleep(task);
@@ -262,6 +291,17 @@ void cmd_start(struct CONSOLE *cons, char *cmdline, int memtotal) {
     for (i = 6; cmdline[i] != 0; i++)
         fifo32_put(fifo, cmdline[i] + 256);
     fifo32_put(fifo, 10 + 256); //Enter
+    cons_newline(cons);
+}
+
+void cmd_ncst(struct CONSOLE *cons, char *cmdline, int memtotal) {
+    struct TASK *task = open_constask(0, memtotal);
+    struct FIFO32 *fifo = &task->fifo;
+    int i;
+
+    for (i = 5; cmdline[i] != 0; i++)
+        fifo32_put(fifo, cmdline[i] + 256);
+    fifo32_put(fifo, 10 + 256);
     cons_newline(cons);
 }
 
