@@ -319,7 +319,7 @@ struct TASK {
     struct FIFO32 fifo;
     struct TSS32 tss;
     struct CONSOLE *cons; //そのタスクのconsole
-    int ds_base; //そのタスクで実行したアプリのデータセグメントを記録しておく番地
+    int ds_base, cons_stack; //そのタスクで実行したアプリのデータセグメントを記録しておく番地
 };
 
 struct TASKLEVEL {
@@ -385,6 +385,7 @@ void cmd_mem(struct CONSOLE *cons, unsigned int memtotal);
 void cmd_cls(struct CONSOLE *cons);
 void cmd_dir(struct CONSOLE *cons);
 void cmd_type(struct CONSOLE *cons, int *fat, char *cmdline);
+void cmd_exit(struct CONSOLE *cons, int *fat);
 int cmd_app(struct CONSOLE *cons, int *fat, char *cmdline);
 void cons_putstr0(struct CONSOLE *cons, char *s);
 void cons_putstr1(struct CONSOLE *cons, char *s, int l);
@@ -392,9 +393,12 @@ int *hrb_api(int edi, int esi, int ebp, int esp, int ebx, int edx, int ecx, int 
 int *inthandler0d(int *esp);
 void hrb_api_linewin(struct SHEET *sht, int x0, int y0, int x1, int y1, int col);
 
-void keywin_on(struct SHEET *key_win);
+//bootpack.c
 void keywin_off(struct SHEET *key_win);
+void keywin_on(struct SHEET *key_win);
 struct SHEET *open_console(struct SHTCTL *shtctl, unsigned int memtotal);
+void close_constask(struct TASK *task);
+void close_console(struct SHEET *sht);
 
 //window.c
 void make_window8(unsigned char *buf, int xsize, int ysize, char *title, char act);
