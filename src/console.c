@@ -22,7 +22,7 @@ void console_task(struct SHEET *sheet, unsigned int memtotal) {
     file_readfat(fat, (unsigned char *) (ADR_DISKIMG + 0x000200));
 
     //コンソールウインドウを持たない場合はカーソル点滅不要
-    if (sheet != 0) {
+    if (cons.sht != 0) {
         cons.timer = timer_alloc();
         timer_init(cons.timer, &task->fifo, 1);
         timer_settime(cons.timer, 50);
@@ -40,7 +40,7 @@ void console_task(struct SHEET *sheet, unsigned int memtotal) {
             io_sti();
 
             if (i <= 1) {
-                if (i != 0) {
+                if (cons.sht != 0) {
                     timer_init(cons.timer, &task->fifo, 0);
                     if (cons.cur_c >= 0)
                         cons.cur_c = COL8_FFFFFF;
@@ -57,7 +57,8 @@ void console_task(struct SHEET *sheet, unsigned int memtotal) {
                 cons.cur_c = COL8_FFFFFF;
 
             if (i == 3) { //cursor off
-                boxfill8(sheet->buf, sheet->bxsize, COL8_000000, cons.cur_x, cons.cur_y, cons.cur_x + 7, cons.cur_y + 15);
+                if (cons.sht != 0)
+                    boxfill8(cons.sht->buf, cons.sht->bxsize, COL8_000000, cons.cur_x, cons.cur_y, cons.cur_x + 7, cons.cur_y + 15);
                 cons.cur_c = -1;
             }
             if (i == 4)
@@ -79,7 +80,7 @@ void console_task(struct SHEET *sheet, unsigned int memtotal) {
                     cons_runcmd(cmdline, &cons, fat, memtotal);
 
                     //コンソールウインドウがない場合、アプリの実行が終わったら終了させる
-                    if (sheet == 0)
+                    if (cons.sht == 0)
                         cmd_exit(&cons, fat);
                     //プロンプト表示
                     cons_putchar(&cons, '>', 1);
@@ -92,11 +93,11 @@ void console_task(struct SHEET *sheet, unsigned int memtotal) {
                 }
             }
             //コンソールウインドウを持たない場合はカーソル再表示不要
-            if (sheet != 0) {
+            if (cons.sht != 0) {
                 //カーソル再表示
                 if (cons.cur_c >= 0)
-                    boxfill8(sheet->buf, sheet->bxsize, cons.cur_c, cons.cur_x, cons.cur_y, cons.cur_x + 7, cons.cur_y + 15);
-                sheet_refresh(sheet, cons.cur_x, cons.cur_y, cons.cur_x + 8, cons.cur_y + 16);
+                    boxfill8(cons.sht->buf, cons.sht->bxsize, cons.cur_c, cons.cur_x, cons.cur_y, cons.cur_x + 7, cons.cur_y + 15);
+                sheet_refresh(cons.sht, cons.cur_x, cons.cur_y, cons.cur_x + 8, cons.cur_y + 16);
             }
         }
     }
@@ -418,6 +419,7 @@ int *hrb_api(int edi, int esi, int ebp, int esp, int ebx, int edx, int ecx, int 
     struct CONSOLE *cons = task->cons;
     struct SHTCTL *shtctl = (struct SHTCTL *) *((int *) 0xfe4);
     struct SHEET *sht;
+    struct FIFO32 *sys_fifo = (struct FIFO32 *) *((int *) 0x0fec);
 
     int i;
 
@@ -558,7 +560,7 @@ int *hrb_api(int edi, int esi, int ebp, int esp, int ebx, int edx, int ecx, int 
         sheet_free((struct SHEET *) ebx);
 
     } else if (edx == 15) {
-        /**
+        /*
          * キー入力を受け付ける
          * eax == 0 : キー入力がなければ-1を返す
          * eax == 1 : キー入力があるまでスリープ
@@ -591,8 +593,16 @@ int *hrb_api(int edi, int esi, int ebp, int esp, int ebx, int edx, int ecx, int 
             if (i == 3)
                 cons->cur_c = -1;
 
+            //コンソールだけ閉じる(アプリ起動中にコンソールを閉じる場合、bootpack.cのループからfifoにデータが送られてくる。
+            //アプリ起動中で、入力待ちの場合はここで処理される
+            if (i == 4) {
+                timer_cancel(cons->timer);
+                io_cli();
+                fifo32_put(sys_fifo, cons->sht - shtctl->sheets0 + 2024); //2024-2279
+                cons->sht = 0;
+                io_sti();
+            }
             if (i >= 256) {
-                //キーボード
                 reg[7] = i - 256;
                 return 0;
             }
