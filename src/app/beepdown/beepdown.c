@@ -1,4 +1,4 @@
-#include "haribooote.h"
+#include "apilib.h"
 
 void HariMain(void) {
     int i;
@@ -16,6 +16,6 @@ void HariMain(void) {
             break;
     }
 
-    api_beep(440000);
+    api_beep(0);
     api_end();
 }

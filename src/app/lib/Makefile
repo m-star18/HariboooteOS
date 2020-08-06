@@ -2,19 +2,29 @@
 
 CC = gcc
 CFLAGS = -fno-pie -no-pie -nostdlib -m32 -fno-builtin -O0
-INCLUDE = -I include -I ../../tools/stdlibc/include
+INCLUDE = -I include -I tools/stdlibc/include
+
+ARCHIVE = ar
 
 TARGET_DIR = ../../../bin/app
 DIST_DIR = $(TARGET_DIR)/lib
 TMP_DIR = $(TARGET_DIR)/tmp/lib
-APP = $(DIST_DIR)/libhrb
-APP_SRC = haribooote.s
+TARGET = $(DIST_DIR)/apilib.lib
 
-$(APP): $(APP_SRC)
+SRC_DIR = src
+SRC = $(shell find $(SRC_DIR) -type f)
+OBJ = $(addprefix $(TMP_DIR)/, $(notdir $(SRC:.s=.o)))
+
+all: $(TARGET)
+
+$(TARGET): $(OBJ)
 	mkdir -p $(DIST_DIR)
+	$(ARCHIVE) r $@ $^
+
+$(TMP_DIR)/%.o : $(SRC_DIR)/%.s
 	mkdir -p $(TMP_DIR)
-	$(CC) -c $(CFLAGS) -o $(APP) $(APP_SRC)
+	$(CC) -c $(CFLAGS) -o $@ $<
 
 clean:
 	rm -rf $(TMP_DIR)
-	rm -f $(APP)
+	rm -rf $(DIST_DIR)
