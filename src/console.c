@@ -370,17 +370,20 @@ int cmd_app(struct CONSOLE *cons, int *fat, char *cmdline) {
 
             //0x60を足すのは、アプリのセグメントであるとあつかうため
             //コードセグメント
-            set_segmdesc(gdt + task->sel / 8 + 1000, finfo->size - 1, (int) p, AR_CODE32_ER + 0x60);
+            //タスク内のLDTを使用する
+            set_segmdesc(task->ldt + 0, finfo->size - 1, (int) p, AR_CODE32_ER + 0x60);
             //データセグメント
-            set_segmdesc(gdt + task->sel / 8 + 2000, segsiz - 1, (int) q, AR_DATA32_RW + 0x60);
+            //タスク内のLDTを使用する
+            set_segmdesc(task->ldt + 1, segsiz - 1, (int) q, AR_DATA32_RW + 0x60);
 
             //データセクションからデータセグメントにコピー
             for (i = 0; i < datsiz; i++)
                 q[esp + i] = p[dathrb + i];
 
-            //権限による制御を使う場合は、TSSにOS用のセグメントと、ESPを登録する必要がある(P438)
-            //0x1bから始めるのは、その位置(実際にはヘッダ内)に、mainへのjmp命令が埋め込まれてるから
-            start_app(0x1b, task->sel + 1000 * 8, esp, task->sel + 2000 * 8, &(task->tss.esp0));
+            //セグメントに4を足すと、LDTのセグメント番号であることを示す
+            //このコンソールが動作しているタスクのLDT 0をコードセグメント、LDT 1をデータセグメントとして使用する
+            //LDTはタスクごとに用意されているので、固定値でも他のコンソールは別タスクなので、そのタスクに割り当てられたLDTを利用することになって問題ない
+            start_app(0x1b, 0 * 8 + 4, esp, 1 * 8 + 4, &(task->tss.esp0));
             shtctl = (struct SHTCTL *) *((int *) 0xfe4);
 
             for (i = 0; i < MAX_SHEETS; i++) {
