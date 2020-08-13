@@ -5,7 +5,6 @@ void init_pic() {
      * IMR : interrupt mask register
      * このビットが1になっているIRQからの信号を無視する
      * 設定中や、使用しない場合は1を入れておく
-     *
      * ICW : init control word
      * ICW1, 4はここでの値以外は使われない（割り込み信号の電気的な特性に関連する）
      * ICW3はマスタ・スレーブの接続関係、マスタには何番のIRQにスレーブがつながっているかを8bitで指定
