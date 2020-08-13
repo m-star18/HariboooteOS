@@ -22,7 +22,7 @@ void console_task(struct SHEET *sheet, unsigned int memtotal) {
     file_readfat(fat, (unsigned char *) (ADR_DISKIMG + 0x000200));
 
     //コンソールウインドウを持たない場合はカーソル点滅不要
-    if (sheet != 0) {
+    if (cons.sht != 0) {
         cons.timer = timer_alloc();
         timer_init(cons.timer, &task->fifo, 1);
         timer_settime(cons.timer, 50);
@@ -40,7 +40,7 @@ void console_task(struct SHEET *sheet, unsigned int memtotal) {
             io_sti();
 
             if (i <= 1) {
-                if (i != 0) {
+                if (cons.sht != 0) {
                     timer_init(cons.timer, &task->fifo, 0);
                     if (cons.cur_c >= 0)
                         cons.cur_c = COL8_FFFFFF;
@@ -57,7 +57,8 @@ void console_task(struct SHEET *sheet, unsigned int memtotal) {
                 cons.cur_c = COL8_FFFFFF;
 
             if (i == 3) { //cursor off
-                boxfill8(sheet->buf, sheet->bxsize, COL8_000000, cons.cur_x, cons.cur_y, cons.cur_x + 7, cons.cur_y + 15);
+                if (cons.sht != 0)
+                    boxfill8(cons.sht->buf, cons.sht->bxsize, COL8_000000, cons.cur_x, cons.cur_y, cons.cur_x + 7, cons.cur_y + 15);
                 cons.cur_c = -1;
             }
             if (i == 4)
@@ -79,7 +80,7 @@ void console_task(struct SHEET *sheet, unsigned int memtotal) {
                     cons_runcmd(cmdline, &cons, fat, memtotal);
 
                     //コンソールウインドウがない場合、アプリの実行が終わったら終了させる
-                    if (sheet == 0)
+                    if (cons.sht == 0)
                         cmd_exit(&cons, fat);
                     //プロンプト表示
                     cons_putchar(&cons, '>', 1);
@@ -92,11 +93,11 @@ void console_task(struct SHEET *sheet, unsigned int memtotal) {
                 }
             }
             //コンソールウインドウを持たない場合はカーソル再表示不要
-            if (sheet != 0) {
+            if (cons.sht != 0) {
                 //カーソル再表示
                 if (cons.cur_c >= 0)
-                    boxfill8(sheet->buf, sheet->bxsize, cons.cur_c, cons.cur_x, cons.cur_y, cons.cur_x + 7, cons.cur_y + 15);
-                sheet_refresh(sheet, cons.cur_x, cons.cur_y, cons.cur_x + 8, cons.cur_y + 16);
+                    boxfill8(cons.sht->buf, cons.sht->bxsize, cons.cur_c, cons.cur_x, cons.cur_y, cons.cur_x + 7, cons.cur_y + 15);
+                sheet_refresh(cons.sht, cons.cur_x, cons.cur_y, cons.cur_x + 8, cons.cur_y + 16);
             }
         }
     }
@@ -369,17 +370,20 @@ int cmd_app(struct CONSOLE *cons, int *fat, char *cmdline) {
 
             //0x60を足すのは、アプリのセグメントであるとあつかうため
             //コードセグメント
-            set_segmdesc(gdt + task->sel / 8 + 1000, finfo->size - 1, (int) p, AR_CODE32_ER + 0x60);
+            //タスク内のLDTを使用する
+            set_segmdesc(task->ldt + 0, finfo->size - 1, (int) p, AR_CODE32_ER + 0x60);
             //データセグメント
-            set_segmdesc(gdt + task->sel / 8 + 2000, segsiz - 1, (int) q, AR_DATA32_RW + 0x60);
+            //タスク内のLDTを使用する
+            set_segmdesc(task->ldt + 1, segsiz - 1, (int) q, AR_DATA32_RW + 0x60);
 
             //データセクションからデータセグメントにコピー
             for (i = 0; i < datsiz; i++)
                 q[esp + i] = p[dathrb + i];
 
-            //権限による制御を使う場合は、TSSにOS用のセグメントと、ESPを登録する必要がある(P438)
-            //0x1bから始めるのは、その位置(実際にはヘッダ内)に、mainへのjmp命令が埋め込まれてるから
-            start_app(0x1b, task->sel + 1000 * 8, esp, task->sel + 2000 * 8, &(task->tss.esp0));
+            //セグメントに4を足すと、LDTのセグメント番号であることを示す
+            //このコンソールが動作しているタスクのLDT 0をコードセグメント、LDT 1をデータセグメントとして使用する
+            //LDTはタスクごとに用意されているので、固定値でも他のコンソールは別タスクなので、そのタスクに割り当てられたLDTを利用することになって問題ない
+            start_app(0x1b, 0 * 8 + 4, esp, 1 * 8 + 4, &(task->tss.esp0));
             shtctl = (struct SHTCTL *) *((int *) 0xfe4);
 
             for (i = 0; i < MAX_SHEETS; i++) {
@@ -418,6 +422,7 @@ int *hrb_api(int edi, int esi, int ebp, int esp, int ebx, int edx, int ecx, int 
     struct CONSOLE *cons = task->cons;
     struct SHTCTL *shtctl = (struct SHTCTL *) *((int *) 0xfe4);
     struct SHEET *sht;
+    struct FIFO32 *sys_fifo = (struct FIFO32 *) *((int *) 0x0fec);
 
     int i;
 
@@ -558,7 +563,7 @@ int *hrb_api(int edi, int esi, int ebp, int esp, int ebx, int edx, int ecx, int 
         sheet_free((struct SHEET *) ebx);
 
     } else if (edx == 15) {
-        /**
+        /*
          * キー入力を受け付ける
          * eax == 0 : キー入力がなければ-1を返す
          * eax == 1 : キー入力があるまでスリープ
@@ -591,8 +596,16 @@ int *hrb_api(int edi, int esi, int ebp, int esp, int ebx, int edx, int ecx, int 
             if (i == 3)
                 cons->cur_c = -1;
 
+            //コンソールだけ閉じる(アプリ起動中にコンソールを閉じる場合、bootpack.cのループからfifoにデータが送られてくる。
+            //アプリ起動中で、入力待ちの場合はここで処理される
+            if (i == 4) {
+                timer_cancel(cons->timer);
+                io_cli();
+                fifo32_put(sys_fifo, cons->sht - shtctl->sheets0 + 2024); //2024-2279
+                cons->sht = 0;
+                io_sti();
+            }
             if (i >= 256) {
-                //キーボード
                 reg[7] = i - 256;
                 return 0;
             }
