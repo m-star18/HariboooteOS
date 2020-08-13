@@ -8,6 +8,7 @@ void console_task(struct SHEET *sheet, unsigned int memtotal) {
     int x, y;
     struct CONSOLE cons;
     char cmdline[30];
+
     cons.sht = sheet;
     cons.cur_x = 8;
     cons.cur_y = 28;
@@ -40,7 +41,7 @@ void console_task(struct SHEET *sheet, unsigned int memtotal) {
             io_sti();
 
             if (i <= 1) {
-                if (cons.sht != 0) {
+                if (i != 0) {
                     timer_init(cons.timer, &task->fifo, 0);
                     if (cons.cur_c >= 0)
                         cons.cur_c = COL8_FFFFFF;
@@ -121,7 +122,7 @@ void cons_putchar(struct CONSOLE *cons, int chr, char move) {
             if (((cons->cur_x - 8) & 0x1f) == 0)
                 break; //32で割り切れたら
         }
-    //LF
+        //LF
     } else if (str[0] == 0x0a)
         cons_newline(cons);
 
@@ -165,16 +166,17 @@ void cons_newline(struct CONSOLE *cons) {
 }
 
 void cons_runcmd(char *cmdline, struct CONSOLE *cons, int *fat, unsigned int memtotal) {
-    if (_strcmp(cmdline, "mem") == 0)
+    //cons->shtを見ているのはコンソールがない場合は実行しなくていいから
+    if (_strcmp(cmdline, "mem") == 0 && cons->sht != 0)
         cmd_mem(cons, memtotal);
 
-    else if (_strcmp(cmdline, "cls") == 0)
+    else if (_strcmp(cmdline, "cls") == 0 && cons->sht != 0)
         cmd_cls(cons);
 
-    else if (_strcmp(cmdline, "dir") == 0)
+    else if (_strcmp(cmdline, "dir") == 0 && cons->sht != 0)
         cmd_dir(cons);
 
-    else if (_strncmp(cmdline, "type ", 5) == 0)
+    else if (_strncmp(cmdline, "type ", 5) == 0 && cons->sht != 0)
         cmd_type(cons, fat, cmdline);
 
     else if (_strcmp(cmdline, "exit") == 0)
@@ -217,7 +219,7 @@ void cmd_dir(struct CONSOLE *cons) {
     int i, j;
     char str[30];
 
-    for (i = 0; i < 224; i++) {
+   for (i = 0; i < 224; i++) {
         if (finfo[i].name[0] == 0x00) break;
         if (finfo[i].name[0] != 0xa5) {
             if ((finfo[i].type & 0x18) == 0) {
@@ -254,55 +256,6 @@ void cmd_type(struct CONSOLE *cons, int *fat, char *cmdline) {
     } else
         cons_putstr0(cons, "File not found.\n");
 
-    cons_newline(cons);
-}
-
-void cmd_exit(struct CONSOLE *cons, int *fat) {
-    struct MEMMAN *memman = (struct MEMMAN *) MEMMAN_ADDR;
-    struct TASK *task = task_now();
-    struct SHTCTL *shtctl = (struct SHTCTL *) *((int *) 0x0fe4);
-    struct FIFO32 *fifo = (struct FIFO32 *) *((int *) 0x0fec);
-
-    timer_cancel(cons->timer);
-    memman_free_4k(memman, (int) fat, 4 * 2880);
-    io_cli();
-
-    if (cons->sht != 0)
-        fifo32_put(fifo, cons->sht - shtctl->sheets0 + 768); //768 - 1023
-
-    else {
-        //コンソールウインドウがない場合
-        fifo32_put(fifo, task - taskctl->tasks0 + 1024); //1024 - 2023
-    }
-    io_sti();
-    for (;;)
-        task_sleep(task);
-}
-
-void cmd_start(struct CONSOLE *cons, char *cmdline, int memtotal) {
-    struct SHTCTL *shtctl = (struct SHTCTL *) *((int *) 0x0fe4);
-    struct SHEET *sht = open_console(shtctl, memtotal);
-    struct FIFO32 *fifo = &sht->task->fifo;
-    int i;
-
-    sheet_slide(sht, 32, 4);
-    sheet_updown(sht, shtctl->top);
-
-    //位置文字ずつ新コンソールにコピー
-    for (i = 6; cmdline[i] != 0; i++)
-        fifo32_put(fifo, cmdline[i] + 256);
-    fifo32_put(fifo, 10 + 256); //Enter
-    cons_newline(cons);
-}
-
-void cmd_ncst(struct CONSOLE *cons, char *cmdline, int memtotal) {
-    struct TASK *task = open_constask(0, memtotal);
-    struct FIFO32 *fifo = &task->fifo;
-    int i;
-
-    for (i = 5; cmdline[i] != 0; i++)
-        fifo32_put(fifo, cmdline[i] + 256);
-    fifo32_put(fifo, 10 + 256);
     cons_newline(cons);
 }
 
@@ -359,9 +312,6 @@ int cmd_app(struct CONSOLE *cons, int *fat, char *cmdline) {
             datsiz = *((int *) (p + 0x0010)); //データセクションからデータセグメントにコピーする大きさ
             dathrb = *((int *) (p + 0x0014)); //hrbファイル内のデータセクションの位置
 
-            //_sprintf(str, "[debug] segsiz=0x%X, esp=0x%X\n[debug] datsiz=0x%x, dathrb=0x%x\n", segsiz, esp, datsiz, dathrb);
-            //cons_putstr0(cons, str);
-
             //データセグメントのサイズに基づいてメモリ確保
             q = (char *) memman_alloc_4k(memman, segsiz);
 
@@ -374,7 +324,7 @@ int cmd_app(struct CONSOLE *cons, int *fat, char *cmdline) {
             set_segmdesc(task->ldt + 0, finfo->size - 1, (int) p, AR_CODE32_ER + 0x60);
             //データセグメント
             //タスク内のLDTを使用する
-            set_segmdesc(task->ldt + 1, segsiz - 1, (int) q, AR_DATA32_RW + 0x60);
+            set_segmdesc(task->ldt + 1,  segsiz - 1, (int) q, AR_DATA32_RW + 0x60);
 
             //データセクションからデータセグメントにコピー
             for (i = 0; i < datsiz; i++)
@@ -412,7 +362,9 @@ void cons_putstr0(struct CONSOLE *cons, char *str) {
 }
 
 void cons_putstr1(struct CONSOLE *cons, char *str, int l) {
-    for (int i = 0; i < l; i++)
+    int i;
+
+    for (i = 0; i < l; i++)
         cons_putchar(cons, str[i], 1);
 }
 
@@ -420,7 +372,7 @@ int *hrb_api(int edi, int esi, int ebp, int esp, int ebx, int edx, int ecx, int 
     struct TASK *task = task_now();
     int ds_base = task->ds_base;
     struct CONSOLE *cons = task->cons;
-    struct SHTCTL *shtctl = (struct SHTCTL *) *((int *) 0xfe4);
+    struct SHTCTL *shtctl = (struct SHTCTL *) *((int *)0xfe4);
     struct SHEET *sht;
     struct FIFO32 *sys_fifo = (struct FIFO32 *) *((int *) 0x0fec);
 
@@ -430,6 +382,8 @@ int *hrb_api(int edi, int esi, int ebp, int esp, int ebx, int edx, int ecx, int 
     //asm_hrb_apiでこの関数はcallされ、call前にpsuhaを2回やっている
     //ここでは引数のeaxの次の番地(=1回目のpushadのedi)のアドレスを参照させる
     //1回目のpushはレジスタを保存するためのpushなので、eaxにpopされるであろうreg[7]に値をセットするとasm_hrb_apiの戻り値になる（無理やり）
+
+    char str[32];
 
     if (edx == 1)
         cons_putchar(cons, eax & 0x000000ff, 1);
@@ -442,7 +396,7 @@ int *hrb_api(int edi, int esi, int ebp, int esp, int ebx, int edx, int ecx, int 
 
     else if (edx == 4) {
         //api_end
-        return &(task->tss.esp0);
+        return & (task->tss.esp0);
 
     } else if (edx == 5) {
         /* windowを作る
@@ -459,7 +413,7 @@ int *hrb_api(int edi, int esi, int ebp, int esp, int ebx, int edx, int ecx, int 
         sheet_setbuf(sht, (char *) ebx + ds_base, esi, edi, eax);
         make_window8((char *) ebx + ds_base, esi, edi, (char *) ecx + ds_base, 0);
         sheet_slide(sht, ((shtctl->xsize - esi) / 2) & ~3, (shtctl->ysize - edi) / 2); //中央に移動、画面サイズ - ウィンドウサイズ / 2、さらに高速化のためにxを4で切り捨てる
-        sheet_updown(sht, shtctl->top - 1); //マウスと同じ高さになるようにする（マウスはこの上になる
+        sheet_updown(sht, shtctl->top - 1); //マウスと同じ高さになるようにする（マウスはこの上になる）
         reg[7] = (int) sht;
 
     } else if (edx == 6) {
@@ -472,9 +426,11 @@ int *hrb_api(int edi, int esi, int ebp, int esp, int ebx, int edx, int ecx, int 
          * ebp str
          * */
 
-        sht = (struct SHEET *) ebx;
+        sht = (struct SHEET *) (ebx & 0xfffffffe);
         putfonts8_asc(sht->buf, sht->bxsize, esi, edi, eax, (char *) ebp + ds_base);
-        sheet_refresh(sht, esi, edi, esi + ecx * 8, edi + 16);
+
+        if ((ebx & 1) == 0)
+            sheet_refresh(sht, esi, edi, esi + ecx * 8, edi + 16);
 
     } else if (edx == 7) {
         /* windowに四角形を描く
@@ -485,9 +441,10 @@ int *hrb_api(int edi, int esi, int ebp, int esp, int ebx, int edx, int ecx, int 
          * edi y1
          * ebp col
          * */
-        sht = (struct SHEET *) ebx;
+        sht = (struct SHEET *) (ebx & 0xfffffffe);
         boxfill8(sht->buf, sht->bxsize, ebp, eax, ecx, esi, edi);
-        sheet_refresh(sht, eax, ecx, esi + 1, edi + 1);
+        if ((ebx & 1) == 0)
+            sheet_refresh(sht, eax, ecx, esi + 1, edi + 1);
 
     } else if (edx == 8) {
         /* memman初期化
@@ -524,12 +481,13 @@ int *hrb_api(int edi, int esi, int ebp, int esp, int ebx, int edx, int ecx, int 
          * edi : y
          * eax : color
          * */
-        sht = (struct SHEET *) ebx;
+        sht = (struct SHEET *) (ebx & 0xfffffffe);
         sht->buf[sht->bxsize * edi + esi] = eax;
-        sheet_refresh(sht, esi, edi, esi + 1, edi + 1);
+        if ((ebx & 1) == 0)
+            sheet_refresh(sht, esi, edi, esi + 1, edi + 1);
 
     } else if (edx == 12) {
-        /*
+        /* refresh
          * ebx : win
          * eax : x0
          * ecx : y0
@@ -563,8 +521,7 @@ int *hrb_api(int edi, int esi, int ebp, int esp, int ebx, int edx, int ecx, int 
         sheet_free((struct SHEET *) ebx);
 
     } else if (edx == 15) {
-        /*
-         * キー入力を受け付ける
+        /* キー入力を受け付ける
          * eax == 0 : キー入力がなければ-1を返す
          * eax == 1 : キー入力があるまでスリープ
          * */
@@ -633,7 +590,7 @@ int *hrb_api(int edi, int esi, int ebp, int esp, int ebx, int edx, int ecx, int 
         /*
          * ebx : timer
          * */
-        timer_free((struct TIMER *) ebx);
+        timer_free((struct TIMER *)ebx);
 
     } else if (edx == 20) {
         /* BEEP
@@ -653,7 +610,6 @@ int *hrb_api(int edi, int esi, int ebp, int esp, int ebx, int edx, int ecx, int 
             io_out8(0x61, (i | 0x03) & 0x0f);
         }
     }
-
     return 0;
 }
 
@@ -708,7 +664,6 @@ void hrb_api_linewin(struct SHEET *sht, int x0, int y0, int x1, int y1, int col)
         //マイナス方向
         if (x0  > x1)
             dx -= 1024;
-
         //プラス方向
         else
             dx = 1024;
@@ -741,4 +696,55 @@ void hrb_api_linewin(struct SHEET *sht, int x0, int y0, int x1, int y1, int col)
         x += dx;
         y += dy;
     }
+}
+
+void cmd_exit(struct CONSOLE *cons, int *fat) {
+    struct MEMMAN *memman = (struct MEMMAN *)MEMMAN_ADDR;
+    struct TASK *task = task_now();
+    struct SHTCTL *shtctl = (struct SHTCTL *) *((int *) 0x0fe4);
+    struct FIFO32 *fifo = (struct FIFO32 *) *((int *) 0x0fec);
+
+    timer_cancel(cons->timer);
+    memman_free_4k(memman, (int) fat, 4 * 2880);
+    io_cli();
+
+    if (cons->sht != 0)
+        fifo32_put(fifo, cons->sht - shtctl->sheets0 + 768); //768 - 1023
+
+    else {
+        //コンソールウインドウがない場合
+        fifo32_put(fifo, task - taskctl->tasks0 + 1024); //1024 - 2023
+    }
+    io_sti();
+    for (;;)
+        task_sleep(task);
+}
+
+void cmd_start(struct CONSOLE *cons, char *cmdline, int memtotal) {
+    struct SHTCTL *shtctl = (struct SHTCTL *) *((int *) 0x0fe4);
+    struct SHEET *sht = open_console(shtctl, memtotal);
+    struct FIFO32 *fifo = &sht->task->fifo;
+    int i;
+
+    sheet_slide(sht, 32, 4);
+    sheet_updown(sht, shtctl->top);
+
+    //位置文字ずつ新コンソールにコピー
+    for (i = 6; cmdline[i] != 0; i++)
+        fifo32_put(fifo, cmdline[i] + 256);
+
+    fifo32_put(fifo, 10 + 256); //Enter
+    cons_newline(cons);
+}
+
+void cmd_ncst(struct CONSOLE *cons, char *cmdline, int memtotal) {
+    struct TASK *task = open_constask(0, memtotal);
+    struct FIFO32 *fifo = &task->fifo;
+    int i;
+
+    for (i = 5; cmdline[i] != 0; i++)
+        fifo32_put(fifo, cmdline[i] + 256);
+
+    fifo32_put(fifo, 10 + 256);
+    cons_newline(cons);
 }
