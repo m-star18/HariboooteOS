@@ -5,7 +5,7 @@ void init_gdtidt(void) {
     struct GATE_DESCRIPTOR *idt = (struct GATE_DESCRIPTOR *) ADR_IDT;
     int i;
 
-    for (i = 0; i < LIMIT_GDT / sizeof(struct SEGMENT_DESCRIPTOR); i++)
+    for(i = 0; i < LIMIT_GDT / sizeof(struct SEGMENT_DESCRIPTOR); i++)
         set_segmdesc(gdt + i, 0, 0, 0);
 
     //全メモリ
