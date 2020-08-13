@@ -24,17 +24,11 @@ void init_mouse_cursor8(char *mouse, char bc) {
 
     for (y = 0; y < 16; y++) {
         for (x = 0; x < 16; x++) {
-            if (cursor[y][x] =='*')
-                mouse[y * 16 + x] = COL8_000000;
-
-            if (cursor[y][x] =='O')
-                mouse[y * 16 + x] = COL8_FFFFFF;
-
-            if (cursor[y][x] =='.')
-                mouse[y * 16 + x] = bc;
+            if (cursor[y][x] =='*') mouse[y * 16 + x] = COL8_000000;
+            if (cursor[y][x] =='O') mouse[y * 16 + x] = COL8_FFFFFF;
+            if (cursor[y][x] =='.') mouse[y * 16 + x] = bc;
         }
     }
-
 }
 
 void putblock8_8(char *vram, int vxsize, int pxsize, int pysize, int px0, int py0, char *buf, int bxsize) {
@@ -46,12 +40,13 @@ void putblock8_8(char *vram, int vxsize, int pxsize, int pysize, int px0, int py
     }
 }
 
-void putfonts8_asc(char *vram, int xsize, int x, int y, char c, unsigned char *s) {
+void putfonts8_asc(char *vram, int xsize, int x, int y, char c, unsigned char *str) {
     extern char hankaku[4096];
-    while (*s != '\0') {
-        putfont8(vram, xsize, x, y, c, (hankaku + *s * 16));
-        x += 8;
-        s++;
+
+    while (*str != '\0') {
+        putfont8(vram, xsize, x, y, c, (hankaku + *str * 16));
+        x += 8
+        str++;
     }
 }
 
@@ -77,6 +72,7 @@ void putfont8(char *vram, int xsize, int x, int y, char c, char *font) {
 
 void boxfill8(unsigned char *vram, int xsize, unsigned char c, int x0, int y0, int x1, int y1) {
     int x, y;
+
     for (y = y0; y <= y1; y++) {
         for (x = x0; x <= x1; x++)
             vram[y * xsize + x] = c;
@@ -128,7 +124,7 @@ void init_palette(void) {
     set_palette(0, 15, table_rgb);
 
     for (b= 0; b < 6; b++) {
-        for (g= 0; g < 6; g++) {
+        for (g = 0; g < 6; g++) {
             for (r = 0; r < 6; r++) {
                 table2[(r + g * 6 + b * 36) * 3 + 0] = r * 51;
                 table2[(r + g * 6 + b * 36) * 3 + 1] = g * 51;
@@ -137,6 +133,7 @@ void init_palette(void) {
         }
     }
     set_palette(16, 231, table2);
+    return;
 }
 
 void set_palette(int start, int end, unsigned char *rgb) {
@@ -155,4 +152,5 @@ void set_palette(int start, int end, unsigned char *rgb) {
     }
 
     io_store_eflags(eflags); //割り込み許可フラグを戻す
+    return;
 }
