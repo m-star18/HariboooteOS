@@ -1,9 +1,7 @@
 #include "bootpack.h"
 
 void HariMain(void) {
-    char *vram;
     char str[32] = {0};
-    char mcursor[16 * 16];
     int fifobuf[128];
     int keycmd_buf[32];
     int mx, my;
@@ -149,7 +147,7 @@ void HariMain(void) {
                 sheet_slide(sht_mouse, new_mx, new_my);
                 new_mx = -1;
 
-            //0x7fffffffを使うのは、ウインドウの座標はマイナス値を取ることがあるから
+                //0x7fffffffを使うのは、ウインドウの座標はマイナス値を取ることがあるから
             } else if (new_wx != 0x7fffffff) {
                 io_sti();
                 sheet_slide(sht, new_wx, new_wy);
@@ -164,7 +162,7 @@ void HariMain(void) {
             i = fifo32_get(&fifo);
             io_sti();
 
-             if (key_win != 0 && key_win->flags == 0) { //入力ウィンドウが閉じられた(ウインドウがなくなっていた)
+            if (key_win != 0 && key_win->flags == 0) { //入力ウィンドウが閉じられた(ウインドウがなくなっていた)
                 //マウスと背景しかない場合
                 if (shtctl->top == 1)
                     key_win = 0;
@@ -184,7 +182,6 @@ void HariMain(void) {
                         str[0] = keytable0[i - 256];
                     else
                         str[0] = keytable1[i - 256];
-
                 } else
                     str[0] = 0;
 
@@ -192,15 +189,16 @@ void HariMain(void) {
                     //capslock off && shift off
                     //capslock on && shift on
                     //のときは小文字
-                    if (((key_leds & 4) == 0 && key_shift == 0) || ((key_leds & 4) != 0 && key_shift != 0))
+                    if (((key_leds & 4) == 0 && key_shift == 0) ||
+                        ((key_leds & 4) != 0 && key_shift != 0))
                         str[0] += 0x20;
                 }
 
-                //通常文字
+                //通常文字、backspace、enter
                 if (str[0] != 0 && key_win != 0)
                     fifo32_put(&key_win->task->fifo, str[0] + 256);
 
-                if (i == 256 + 0x0f) { //TAB
+                if (i == 256 + 0x0f && key_win != 0) { //TAB
                     keywin_off(key_win);
                     j = key_win->height - 1;
                     if (j == 0)
@@ -236,7 +234,7 @@ void HariMain(void) {
                     fifo32_put(&keycmd, KEYCMD_LED);
                     fifo32_put(&keycmd, key_leds);
                 }
-                if (i == 256 + 0x3b && key_shift != 0) { //shift + F1
+                if (i == 256 + 0x3b && key_shift != 0 && key_win != 0) { //shift + F1
                     task = key_win->task;
                     if (task != 0 && task->tss.ss0 != 0) {
                         cons_putstr0(task->cons, "\nBreak(key) :\n");
@@ -257,7 +255,6 @@ void HariMain(void) {
                 if (i == 256 + 0x3c && key_shift != 0) { //shift + F2
                     if (key_win != 0)
                         keywin_off(key_win);
-
                     key_win = open_console(shtctl, memtotal);
                     sheet_slide(key_win, 32, 4);
                     sheet_updown(key_win, shtctl->top);
@@ -274,7 +271,7 @@ void HariMain(void) {
                     io_out8(PORT_KEYDAT, keycmd_wait);
                 }
 
-            //マウス
+                //マウス
             } else if (i >= 512 && i <= 767) {
                 if (mouse_decode(&mdec, i - 512) != 0) {
                     //値の書き換え
