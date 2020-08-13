@@ -8,12 +8,21 @@ struct TASK *task_init(struct MEMMAN *memman) {
     struct TASK *task;
     struct TASK *idle;
     struct SEGMENT_DESCRIPTOR *gdt = (struct SEGMENT_DESCRIPTOR *) ADR_GDT;
+
     taskctl = (struct TASKCTL *) memman_alloc_4k(memman, sizeof(struct TASKCTL));
 
     for (i = 0; i < MAX_TASKS; i++) {
         taskctl->tasks0[i].flags = 0;
+        //TSSのldtrに書き込んで、このタスクがどのLDTを使用するかをCPUにします
+        taskctl->tasks0[i].tss.ldtr = (TASK_GDT0 + MAX_TASKS + i) * 8;
         taskctl->tasks0[i].sel = (TASK_GDT0 + i) * 8;
+
+        //TSS用のディスクリプタ(サイズは104byte)
         set_segmdesc(gdt + TASK_GDT0 + i, 103, (int) & taskctl->tasks0[i].tss, AR_TSS32);
+
+        //LDT用のディスクリプタ(16byte)、セグメントディスクリプタと同じで一つ8byte、これを2つ分
+        //各TASK構造体の中のldtに記録しておく
+        set_segmdesc(gdt + TASK_GDT0 + MAX_TASKS + i, 15, (int) & taskctl->tasks0[i].ldt, AR_LDT);
     }
     for (i = 0; i < MAX_TASKLEVELS; i++) {
         taskctl->level[i].running = 0;
@@ -30,6 +39,9 @@ struct TASK *task_init(struct MEMMAN *memman) {
     task_timer = timer_alloc();
     timer_settime(task_timer, task->priority);
 
+    //各タスクはsleepするときにはcliしたあと、でも起こして上げるために(fifoに書き込むために)割り込み受付は必要
+    //allocでeflagsのIF=1にセットされるので割り込み許可
+    //idleタスクによってfifoへ書き込みができるので他のタスクを起こせるってこと？
     idle = task_alloc();
     idle->tss.esp = memman_alloc_4k(memman, 64 * 1024) + 64 * 1024;
     idle->tss.eip = (int) & task_idle;
@@ -53,7 +65,7 @@ struct TASK *task_alloc(void) {
             task = &taskctl->tasks0[i];
 
             task->flags = 1; //使用中
-            task->tss.eflags = 0x00000202; //IF = 1
+            task->tss.eflags = 0x00000202; //IF = 1(割り込みフラグ)
             task->tss.eax = 0;
             task->tss.ecx = 0;
             task->tss.edx = 0;
@@ -66,14 +78,13 @@ struct TASK *task_alloc(void) {
             task->tss.ds = 0;
             task->tss.fs = 0;
             task->tss.gs = 0;
-            task->tss.ldtr = 0;
+            //task->tss.ldtr = 0;
             task->tss.iomap = 0x40000000;
             task->tss.ss0 = 0;
 
             return task;
         }
     }
-
     return 0;
 }
 

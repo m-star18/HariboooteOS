@@ -30,6 +30,7 @@ void HariMain(void) {
 
     struct SHEET *sht = 0;
     struct SHEET *key_win;
+    struct SHEET *sht2;
 
     static char keytable0[] = {
         0, 0, '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '^', 0x08, 0,
@@ -244,6 +245,13 @@ void HariMain(void) {
                         task->tss.eax = (int) & (task->tss.esp0);
                         task->tss.eip = (int) asm_end_app;
                         io_sti();
+
+                        //終了処理を確実にやらせるために寝ていたら起こす
+                        //ncstコマンドを使う場合、ここでアプリの処理のためにEIPとEAXを書き換えても、タスクがsleepしてしまうと終了処理が走ってくれない
+                        //ncstコマンドを使用しない場合は、カーソル点滅のためにfifoに定期的にデータが入るので、起きてくれる
+                        //以下の行がなくても、fifoにデータが入れば起きるので、閉じるボタンを押したり、強制終了をしたあとに、キー入力したりすると置きて終了してくれる
+                        //ここでは、一度起こしてあげることで、終了処理が走るようにする
+                        task_run(task, -1, 0);
                     }
                 }
                 if (i == 256 + 0x3c && key_shift != 0) { //shift + F2
@@ -331,8 +339,22 @@ void HariMain(void) {
                                                 task->tss.eip = (int) asm_end_app;
                                                 io_sti();
 
-                                            } else {
+                                                //終了処理を確実にやらせるために寝ていたら起こす
+                                                //ncstコマンドを使う場合、ここでアプリの処理のためにEIPとEAXを書き換えても、タスクがsleepしてしまうと終了処理が走ってくれない
+                                                //ncstコマンドを使用しない場合は、カーソル点滅のためにfifoに定期的にデータが入るので、起きてくれる
+                                                //以下の行がなくても、fifoにデータが入れば起きるので、閉じるボタンを押したり、強制終了をしたあとに、キー入力したりすると置きて終了してくれる
+                                                //ここでは、一度起こしてあげることで、終了処理が走るようにする
+                                                task_run(task, -1, 0);
+
+                                            } else { //コンソールウインドウ
                                                 task = sht->task;
+
+                                                //とりあえず非表示にする
+                                                sheet_updown(sht, -1);
+                                                keywin_off(key_win);
+                                                key_win = shtctl->sheets[shtctl->top - 1];
+                                                keywin_on(key_win);
+
                                                 io_cli();
                                                 fifo32_put(&task->fifo, 4);
                                                 io_sti();
@@ -372,8 +394,14 @@ void HariMain(void) {
             } else if (i >= 768 && i <= 1023) //consoleの終了処理(consoleでexitすると送られてくる)
                 close_console(shtctl->sheets0 + (i - 768));
 
-            else if (i >= 768 && i <= 1023) //consoleの終了処理(consoleウインドウを持っていない場合)
+            else if (i >= 1024 && i <= 2023) //consoleの終了処理(consoleウインドウを持っていない場合)
                 close_constask(taskctl->tasks0 + (i - 1024));
+
+            else if (i >= 2024 && i <= 2279) { //consoleの終了処理(アプリを実行した状態でも、consoleだけを閉じる場合)
+                sht2 = shtctl->sheets0 + (i - 2024);
+                memman_free(memman, (int) sht2->buf, 256 * 165);
+                sheet_free(sht2);
+            }
         }
     }
 }
