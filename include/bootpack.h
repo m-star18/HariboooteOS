@@ -330,6 +330,14 @@ struct TASK {
     struct SEGMENT_DESCRIPTOR ldt[2];
     struct CONSOLE *cons; //そのタスクのconsole
     int ds_base, cons_stack; //そのタスクで実行したアプリのデータセグメントを記録しておく番地
+    struct FILEHANDLE *fhandle;
+    int *fat;
+};
+
+struct FILEHANDLE{
+    char *buf;
+    int size;
+    int pos;
 };
 
 struct TASKLEVEL {

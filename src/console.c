@@ -342,6 +342,15 @@ int cmd_app(struct CONSOLE *cons, int *fat, char *cmdline) {
                 if ((sht->flags & 0x11) == 0x11 && sht->task == task)
                     sheet_free(sht);
             }
+
+            //開きっぱなしのファイルを閉じる
+            for (i = 0; i < 8; i++) {
+                if (task->fhandle[i].buf != 0) {
+                    memman_free_4k(memman, (int) task->fhandle[i].buf, task->fhandle[i].size);
+                    task->fhandle[i].buf = 0;
+                }
+            }
+
             timer_cancelall(&task->fifo); //アプリで使っていたtimerの自動キャンセル
             memman_free_4k(memman, (int) q, segsiz);
 
@@ -375,6 +384,9 @@ int *hrb_api(int edi, int esi, int ebp, int esp, int ebx, int edx, int ecx, int 
     struct SHTCTL *shtctl = (struct SHTCTL *) *((int *)0xfe4);
     struct SHEET *sht;
     struct FIFO32 *sys_fifo = (struct FIFO32 *) *((int *) 0x0fec);
+    struct FILEINFO *finfo;
+    struct FILEHANDLE *fh;
+    struct MEMMAN *memman = (struct MEMMAN *) MEMMAN_ADDR;
 
     int i;
 
@@ -590,7 +602,7 @@ int *hrb_api(int edi, int esi, int ebp, int esp, int ebx, int edx, int ecx, int 
         /*
          * ebx : timer
          * */
-        timer_free((struct TIMER *)ebx);
+        timer_free((struct TIMER *) ebx);
 
     } else if (edx == 20) {
         /* BEEP
@@ -609,6 +621,81 @@ int *hrb_api(int edi, int esi, int ebp, int esp, int ebx, int edx, int ecx, int 
             i = io_in8(0x61);
             io_out8(0x61, (i | 0x03) & 0x0f);
         }
+
+    } else if (edx == 21) {
+        /* file open
+         * ebx : file name
+         * */
+        //使ってないファイルハンドラを探して使う
+        for (i = 0; i < 8; i++)
+            if (task->fhandle[i].buf == 0) break;
+
+        fh = &task->fhandle[i];
+        reg[7] = 0;
+        if (i < 8) {
+            finfo = file_search((char *) ebx + ds_base, (struct FILEINFO *) (ADR_DISKIMG + 0x002600), 224);
+            if (finfo != 0) {
+                reg[7] = (int) fh;
+                fh->buf = (char *) memman_alloc_4k(memman, finfo->size);
+                fh->size = finfo->size;
+                fh->pos = 0;
+                file_loadfile(finfo->clustno, finfo->size, fh->buf, task->fat, (char *) (ADR_DISKIMG + 0x003e00));
+            }
+        }
+
+    } else if (edx == 22) {
+        /* file close
+         * eax : filehandle
+         * */
+        fh = (struct FILEHANDLE *) eax;
+        memman_free_4k(memman, (int) fh->buf, fh->size);
+        fh->buf = 0;
+
+    } else if (edx == 23) {
+        /* file  seek
+         * eax : filehandle
+         * exc : seek mode
+         *  0 : シークの原点はファイルの先頭
+         *  1 : シークの原点は現在の位置
+         *  2 : シークの原点はファイルの終端
+         *  ebx: シーク量
+         * */
+        fh = (struct FILEHANDLE *) eax;
+
+        if (ecx == 0) fh->pos = ebx;
+        else if (ecx == 1) fh->pos += ebx;
+        else if (ecx == 2) fh->pos = fh->size + ebx;
+
+        if (fh->pos < 0) fh->pos = 0;
+        fh->pos %= fh->size;
+
+    } else if (edx == 24) {
+        /* file size
+         * eax : filehandle
+         * ecx : file size取得モード
+         *  0 : ファイルサイズ
+         *  1 : 先頭から現在の読み取り位置までのバイト数
+         *  2 : 終端から見た現在の読み取り位置までのバイト数
+         * */
+        fh = (struct FILEHANDLE *)eax;
+
+        if (ecx == 0) reg[7] = fh->size;
+        else if (ecx == 1) reg[7] = fh->pos;
+        else if (ecx == 2) reg[7] = fh->pos - fh->size;
+
+    } else if (edx == 25) {
+        /* file read
+         * eax : filehandler
+         * ebx : buffer
+         * ecx : 読み込みバイト数
+         * */
+        fh = (struct FILEHANDLE *) eax;
+        for (i = 0; i < ecx; i++) {
+            if (fh->pos == fh->size) break;
+            *((char *) ebx + ds_base + i) = fh->buf[fh->pos];
+            fh->pos++;
+        }
+        reg[7] = i;
     }
     return 0;
 }
