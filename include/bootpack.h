@@ -332,6 +332,7 @@ struct TASK {
     int ds_base, cons_stack; //そのタスクで実行したアプリのデータセグメントを記録しておく番地
     struct FILEHANDLE *fhandle;
     int *fat;
+    char *cmdline;
 };
 
 struct FILEHANDLE{

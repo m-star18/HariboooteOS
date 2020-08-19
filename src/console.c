@@ -8,6 +8,7 @@ void console_task(struct SHEET *sheet, unsigned int memtotal) {
     int x, y;
     struct CONSOLE cons;
     char cmdline[30];
+    struct FILEHANDLE fhandle[8];
 
     cons.sht = sheet;
     cons.cur_x = 8;
@@ -21,6 +22,16 @@ void console_task(struct SHEET *sheet, unsigned int memtotal) {
 
     int *fat = (int *) memman_alloc_4k(memman, 4 * 2880);
     file_readfat(fat, (unsigned char *) (ADR_DISKIMG + 0x000200));
+
+    //file
+    for (i = 0; i < 8; i++)
+        fhandle[i].buf = 0; //未使用
+
+    task->fhandle = fhandle;
+    task->fat = fat;
+
+    //アプリで引数を受け取れるようにするため
+    task->cmdline = cmdline;
 
     //コンソールウインドウを持たない場合はカーソル点滅不要
     if (cons.sht != 0) {
@@ -694,6 +705,20 @@ int *hrb_api(int edi, int esi, int ebp, int esp, int ebx, int edx, int ecx, int 
             if (fh->pos == fh->size) break;
             *((char *) ebx + ds_base + i) = fh->buf[fh->pos];
             fh->pos++;
+        }
+        reg[7] = i;
+
+    }  else if (edx == 26) {
+        /* cmdlineの取得
+         * ebx : コマンドラインを格納する番地
+         * ecx : 何バイトまで格納できるか
+         * */
+        i = 0;
+        for (;;) {
+            *((char *) ebx + ds_base + i) = task->cmdline[i];
+            if (task->cmdline[i] == 0) break;
+            if (i >= ecx) break;
+            i++;
         }
         reg[7] = i;
     }
