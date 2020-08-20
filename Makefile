@@ -43,6 +43,8 @@ STDLIBC = $(STDLIBC_DIR)/bin/stdlibc.o
 FONT_DIR = src/tools/makefont
 FONT = $(FONT_DIR)/bin/hankaku.o
 
+JPFONT = src/tools/font/nihongo.fnt
+
 EXCLUDE_EXLIB_DEP_FILE = *.swp
 
 IMG = $(TARGET_DIR)/haribooote.img
@@ -77,12 +79,13 @@ $(STDLIBC) : $(shell find $(STDLIBC_DIR) -type f -not -name '$(EXCLUDE_EXLIB_DEP
 	@echo [Dependent Files] STDLIBC: $^
 	cd $(STDLIBC_DIR); make all
 
-$(IMG): $(IPL) $(OSL) $(OS) apps
+$(IMG): $(IPL) $(OSL) $(OS) apps $(JPFONT)
 	cat $(OSL) $(OS) > $(SYSTEM_IMG)
 	mformat -f 1440 -B $(IPL) -C -i $(IMG) ::
 	mcopy $(SYSTEM_IMG) -i $(IMG) ::
 	$(foreach x, $(shell find $(APP_TARGET_DIR) -type f), $(call copy_app, $(x)))
-	mcopy Makefile -i $(IMG) ::
+	mcopy $(IPL_SRC) -i $(IMG) ::
+	mcopy $(JPFONT) -i $(IMG) ::
 
 $(OS): $(addprefix $(TARGET_DIR)/, $(notdir $(OS_SRC:.c=.o))) $(STDLIBC) $(ASMLIB) $(FONT)
 	ld $(LFLAGS) -o $@ -T $(OS_LS) -e HariMain --oformat=binary -Map=$(OS_MMAP) $^

@@ -42,11 +42,22 @@ void putblock8_8(char *vram, int vxsize, int pxsize, int pysize, int px0, int py
 
 void putfonts8_asc(char *vram, int xsize, int x, int y, char c, unsigned char *str) {
     extern char hankaku[4096];
+    struct TASK *task = task_now();
+    char *nihongo = (char *) *((int *) 0xfe8);
 
-    while (*str != '\0') {
-        putfont8(vram, xsize, x, y, c, (hankaku + *str * 16));
-        x += 8;
-        str++;
+    if (task->langmode == 0) {
+        while (*str != '\0'){
+            putfont8(vram, xsize, x, y, c, (hankaku + *str * 16));
+            x += 8;
+            str++;
+        }
+    }
+    if (task->langmode == 1) {
+        while (*str != '\0') {
+            putfont8(vram, xsize, x, y, c, (nihongo + *str * 16));
+            x += 8;
+            str++;
+        }
     }
 }
 

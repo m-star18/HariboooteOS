@@ -199,6 +199,9 @@ void cons_runcmd(char *cmdline, struct CONSOLE *cons, int *fat, unsigned int mem
     else if (_strncmp(cmdline, "ncst ", 5) == 0)
         cmd_ncst(cons, cmdline, memtotal);
 
+    else if (_strncmp(cmdline, "langmode ", 9) == 0)
+        cmd_langmode(cons, cmdline);
+
     else if (cmdline[0] != 0) {
         if (cmd_app(cons, fat, cmdline) == 0)
             cons_putstr0(cons, "Bad Command.\n\n");
@@ -267,6 +270,67 @@ void cmd_type(struct CONSOLE *cons, int *fat, char *cmdline) {
     } else
         cons_putstr0(cons, "File not found.\n");
 
+    cons_newline(cons);
+}
+
+void cmd_exit(struct CONSOLE *cons, int *fat) {
+    struct MEMMAN *memman = (struct MEMMAN *)MEMMAN_ADDR;
+    struct TASK *task = task_now();
+    struct SHTCTL *shtctl = (struct SHTCTL *) *((int *) 0x0fe4);
+    struct FIFO32 *fifo = (struct FIFO32 *) *((int *) 0x0fec);
+
+    timer_cancel(cons->timer);
+    memman_free_4k(memman, (int) fat, 4 * 2880);
+    io_cli();
+
+    if (cons->sht != 0)
+        fifo32_put(fifo, cons->sht - shtctl->sheets0 + 768); //768 - 1023
+
+    else
+        fifo32_put(fifo, task - taskctl->tasks0 + 1024); //1024 - 2023
+    io_sti();
+    for (;;)
+        task_sleep(task);
+}
+
+void cmd_start(struct CONSOLE *cons, char *cmdline, int memtotal) {
+    struct SHTCTL *shtctl = (struct SHTCTL *) *((int *) 0x0fe4);
+    struct SHEET *sht = open_console(shtctl, memtotal);
+    struct FIFO32 *fifo = &sht->task->fifo;
+    int i;
+
+    sheet_slide(sht, 32, 4);
+    sheet_updown(sht, shtctl->top);
+
+    //位置文字ずつ新コンソールにコピー
+    for (i = 6; cmdline[i] != 0; i++)
+        fifo32_put(fifo, cmdline[i] + 256);
+
+    fifo32_put(fifo, 10 + 256); //Enter
+    cons_newline(cons);
+}
+
+void cmd_ncst(struct CONSOLE *cons, char *cmdline, int memtotal) {
+    struct TASK *task = open_constask(0, memtotal);
+    struct FIFO32 *fifo = &task->fifo;
+    int i;
+
+    for (i = 5; cmdline[i] != 0; i++)
+        fifo32_put(fifo, cmdline[i] + 256);
+
+    fifo32_put(fifo, 10 + 256);
+    cons_newline(cons);
+}
+
+void cmd_langmode(struct CONSOLE *cons, char *cmdline) {
+    struct TASK *task = task_now();
+    unsigned char mode = cmdline[9] - '0';
+
+    if (mode <= 1)
+        task->langmode = mode;
+
+    else
+        cons_putstr0(cons, "mode number error.\n");
     cons_newline(cons);
 }
 
@@ -808,55 +872,4 @@ void hrb_api_linewin(struct SHEET *sht, int x0, int y0, int x1, int y1, int col)
         x += dx;
         y += dy;
     }
-}
-
-void cmd_exit(struct CONSOLE *cons, int *fat) {
-    struct MEMMAN *memman = (struct MEMMAN *)MEMMAN_ADDR;
-    struct TASK *task = task_now();
-    struct SHTCTL *shtctl = (struct SHTCTL *) *((int *) 0x0fe4);
-    struct FIFO32 *fifo = (struct FIFO32 *) *((int *) 0x0fec);
-
-    timer_cancel(cons->timer);
-    memman_free_4k(memman, (int) fat, 4 * 2880);
-    io_cli();
-
-    if (cons->sht != 0)
-        fifo32_put(fifo, cons->sht - shtctl->sheets0 + 768); //768 - 1023
-
-    else {
-        //コンソールウインドウがない場合
-        fifo32_put(fifo, task - taskctl->tasks0 + 1024); //1024 - 2023
-    }
-    io_sti();
-    for (;;)
-        task_sleep(task);
-}
-
-void cmd_start(struct CONSOLE *cons, char *cmdline, int memtotal) {
-    struct SHTCTL *shtctl = (struct SHTCTL *) *((int *) 0x0fe4);
-    struct SHEET *sht = open_console(shtctl, memtotal);
-    struct FIFO32 *fifo = &sht->task->fifo;
-    int i;
-
-    sheet_slide(sht, 32, 4);
-    sheet_updown(sht, shtctl->top);
-
-    //位置文字ずつ新コンソールにコピー
-    for (i = 6; cmdline[i] != 0; i++)
-        fifo32_put(fifo, cmdline[i] + 256);
-
-    fifo32_put(fifo, 10 + 256); //Enter
-    cons_newline(cons);
-}
-
-void cmd_ncst(struct CONSOLE *cons, char *cmdline, int memtotal) {
-    struct TASK *task = open_constask(0, memtotal);
-    struct FIFO32 *fifo = &task->fifo;
-    int i;
-
-    for (i = 5; cmdline[i] != 0; i++)
-        fifo32_put(fifo, cmdline[i] + 256);
-
-    fifo32_put(fifo, 10 + 256);
-    cons_newline(cons);
 }
