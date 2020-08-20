@@ -90,6 +90,28 @@ void putfonts8_asc(char *vram, int xsize, int x, int y, char c, unsigned char *s
             str++;
         }
     }
+    if (task->langmode == 2) {
+        while (*str != '\0') {
+            if (task->langbyte1 == 0) {
+                //2byte有り
+                if (*str >= 0x81 && *str <= 0xfe)
+                    task->langbyte1 = *str;
+
+                else
+                    putfont8(vram, xsize, x, y, c, nihongo + *str * 16);
+
+            } else {
+                k = task->langbyte1 - 0xa1;
+                t = *str - 0xa1;
+                task->langbyte1 = 0;
+                font = nihongo + 256 * 16 + (k * 94 + t) * 32;
+                putfont8(vram, xsize, x - 8, y, c, font); //左半分
+                putfont8(vram, xsize, x, y, c, font + 16); //右半分
+            }
+            x += 8;
+            str++;
+        }
+    }
 }
 
 void putfont8(char *vram, int xsize, int x, int y, char c, char *font) {
