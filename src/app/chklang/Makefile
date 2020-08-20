@@ -10,10 +10,10 @@ LS = ../../../scripts/app.lds
 
 TARGET_DIR = ../../../bin/app
 DIST_DIR = $(TARGET_DIR)/dist
-TMP_DIR = $(TARGET_DIR)/tmp/walk
+TMP_DIR = $(TARGET_DIR)/tmp/chklang
 
-APP = $(DIST_DIR)/walk.hrb
-APP_SRC = walk.c
+APP = $(DIST_DIR)/chklang.hrb
+APP_SRC = chklang.c
 
 INCLUDE = -I ../lib/include
 

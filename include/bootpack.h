@@ -297,6 +297,14 @@ int timer_cancel(struct TIMER *timer);
 void timer_cancelall(struct FIFO32 *fifo);
 void inthandler20(int *esp);
 
+//bootpack.c
+void keywin_off(struct SHEET *key_win);
+void keywin_on(struct SHEET *key_win);
+struct TASK *open_constask(struct SHEET *sht, unsigned int memtotal);
+struct SHEET *open_console(struct SHTCTL *shtctl, unsigned int memtotal);
+void close_constask(struct TASK *task);
+void close_console(struct SHEET *sht);
+
 //mtask.c
 #define MAX_TASKS 1000 //最大タスク数
 #define TASK_GDT0 3 //タスクに割り当てるGDTの最初の位置
@@ -322,6 +330,17 @@ struct TASK {
     struct SEGMENT_DESCRIPTOR ldt[2];
     struct CONSOLE *cons; //そのタスクのconsole
     int ds_base, cons_stack; //そのタスクで実行したアプリのデータセグメントを記録しておく番地
+    struct FILEHANDLE *fhandle;
+    int *fat;
+    char *cmdline;
+    unsigned char langmode;
+    unsigned char langbyte1;
+};
+
+struct FILEHANDLE{
+    char *buf;
+    int size;
+    int pos;
 };
 
 struct TASKLEVEL {
@@ -387,23 +406,15 @@ void cmd_mem(struct CONSOLE *cons, unsigned int memtotal);
 void cmd_cls(struct CONSOLE *cons);
 void cmd_dir(struct CONSOLE *cons);
 void cmd_type(struct CONSOLE *cons, int *fat, char *cmdline);
-void cmd_exit(struct CONSOLE *cons, int *fat);
-void cmd_start(struct CONSOLE *cons, char *cmdline, int memtotal);
-void cmd_ncst(struct CONSOLE *cons, char *cmdline, int memtotal);
 int cmd_app(struct CONSOLE *cons, int *fat, char *cmdline);
 void cons_putstr0(struct CONSOLE *cons, char *s);
 void cons_putstr1(struct CONSOLE *cons, char *s, int l);
 int *hrb_api(int edi, int esi, int ebp, int esp, int ebx, int edx, int ecx, int eax);
 int *inthandler0d(int *esp);
 void hrb_api_linewin(struct SHEET *sht, int x0, int y0, int x1, int y1, int col);
-
-//bootpack.c
-void keywin_off(struct SHEET *key_win);
-void keywin_on(struct SHEET *key_win);
-struct TASK *open_constask(struct SHEET *sht, unsigned int memtotal);
-struct SHEET *open_console(struct SHTCTL *shtctl, unsigned int memtotal);
-void close_constask(struct TASK *task);
-void close_console(struct SHEET *sht);
+void cmd_exit(struct CONSOLE *cons, int *fat);
+void cmd_start(struct CONSOLE *cons, char *cmdline, int memtotal);
+void cmd_ncst(struct CONSOLE *cons, char *cmdline, int memtotal);
 
 //window.c
 void make_window8(unsigned char *buf, int xsize, int ysize, char *title, char act);

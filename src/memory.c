@@ -61,6 +61,7 @@ unsigned int memman_total(struct MEMMAN *man) {
 
 unsigned int memman_alloc_4k(struct MEMMAN *man, unsigned int size) {
     unsigned int a;
+
     size = (size + 0x0fff) & 0xfffff000;
     a = memman_alloc(man, size);
 
@@ -69,6 +70,7 @@ unsigned int memman_alloc_4k(struct MEMMAN *man, unsigned int size) {
 
 int memman_free_4k(struct MEMMAN *man, unsigned int addr, unsigned int size) {
     int i;
+
     size = (size + 0x0fff) & 0xfffff000;
     i = memman_free(man, addr, size);
 
@@ -92,11 +94,9 @@ unsigned int memman_alloc(struct MEMMAN *man, unsigned int size) {
                 for (; i < man->frees; i++)
                     man->free[i] = man->free[i + 1];
             }
-
             return a;
         }
     }
-
     return 0;
 }
 
@@ -104,23 +104,22 @@ int memman_free(struct MEMMAN *man, unsigned int addr, unsigned int size) {
     int i, j;
 
     //挿入場所を決める（freeがaddr順に並んでいたほうがまとめやすい）
-    for (i = 0; i < man->frees; i++)
-        if (man->free[i].addr > addr) break;
+    for (i = 0; i < man->frees; i++) {
+        if (man->free[i].addr > addr)
+            break;
+    }
 
-    // free[i - 1].addr < addr < free[i]
     if (i > 0) {
         //iが0より大きい＝前がある
-
         //まとめられる
         if (man->free[i - 1].addr + man->free[i - 1].size == addr) {
             man->free[i - 1].size += size;
 
             //freesより小さい、後ろもある
             if (i < man->frees) {
-
                 //後ろもまとめられる
                 if (addr + size == man->free[i].addr) {
-                    man->free[i - 1].size += man->free[i].size;
+                    man->free[i-1].size += man->free[i].size;
 
                     //後ろをまとめてfree[i]が空いたのでつめる
                     man->frees--;
@@ -128,7 +127,6 @@ int memman_free(struct MEMMAN *man, unsigned int addr, unsigned int size) {
                         man->free[i] = man->free[i + 1];
                 }
             }
-
             return 0;
         }
     }
@@ -145,7 +143,6 @@ int memman_free(struct MEMMAN *man, unsigned int addr, unsigned int size) {
     }
 
     //以下まとめられない場合
-
     //リストに追加可能
     if (man->frees < MEMMAN_FREES) {
         //リストに追加するために、後ろへつめる

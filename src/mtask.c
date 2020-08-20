@@ -78,7 +78,6 @@ struct TASK *task_alloc(void) {
             task->tss.ds = 0;
             task->tss.fs = 0;
             task->tss.gs = 0;
-            //task->tss.ldtr = 0;
             task->tss.iomap = 0x40000000;
             task->tss.ss0 = 0;
 
@@ -131,6 +130,7 @@ void task_switch(void) {
 
 void task_sleep(struct TASK *task) {
     struct TASK *now_task;
+
     if (task->flags == 2) {
         now_task = task_now();
         task_remove(task);
@@ -153,6 +153,7 @@ struct TASK *task_now(void) {
 void task_add(struct TASK *task) {
     //レベルにタスクを追加する
     struct TASKLEVEL *tl = &taskctl->level[task->level];
+
     tl->tasks[tl->running] = task;
     tl->running++;
     task->flags = 2;

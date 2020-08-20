@@ -113,7 +113,7 @@ void change_wtitle8(struct SHEET *sht, char act) {
                 c = tc_new;
 
             } else if (c == tbc_old) {
-                //ボタン?
+                //ボタン
                 c = tbc_new;
             }
             buf[y * xsize + x]  = c;
