@@ -9,6 +9,16 @@ void console_task(struct SHEET *sheet, unsigned int memtotal) {
     struct CONSOLE cons;
     char cmdline[30];
     struct FILEHANDLE fhandle[8];
+    struct MEMMAN *memman = (struct MEMMAN *) MEMMAN_ADDR;
+    int *fat = (int *) memman_alloc_4k(memman, 4 * 2880);
+    unsigned char *nihongo  = (char *) *((int *) 0x0fe8);
+
+    if (nihongo[4096] != 0xff)
+        task->langmode = 1;
+
+    else
+        task->langmode = 0;
+    task->langbyte1 = 0;
 
     cons.sht = sheet;
     cons.cur_x = 8;
@@ -18,12 +28,8 @@ void console_task(struct SHEET *sheet, unsigned int memtotal) {
     //TASK構造体にコンソールの情報を記録しておく
     task->cons = &cons;
 
-    struct MEMMAN *memman = (struct MEMMAN *) MEMMAN_ADDR;
-
-    int *fat = (int *) memman_alloc_4k(memman, 4 * 2880);
-    file_readfat(fat, (unsigned char *) (ADR_DISKIMG + 0x000200));
-
     //file
+    file_readfat(fat, (unsigned char *) (ADR_DISKIMG + 0x000200));
     for (i = 0; i < 8; i++)
         fhandle[i].buf = 0; //未使用
 
@@ -155,6 +161,7 @@ void cons_putchar(struct CONSOLE *cons, int chr, char move) {
 void cons_newline(struct CONSOLE *cons) {
     int x, y;
     struct SHEET *sheet = cons->sht;
+    struct TASK *task = task_now();
 
     if (cons->cur_y < 28 + 112)
         cons->cur_y += 16;
@@ -174,6 +181,8 @@ void cons_newline(struct CONSOLE *cons) {
         }
     }
     cons->cur_x = 8;
+    if (task->langmode == 1 && task->langbyte1 != 0)
+        cons->cur_x += 8;
 }
 
 void cons_runcmd(char *cmdline, struct CONSOLE *cons, int *fat, unsigned int memtotal) {

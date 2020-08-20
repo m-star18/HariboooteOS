@@ -44,9 +44,11 @@ void putfonts8_asc(char *vram, int xsize, int x, int y, char c, unsigned char *s
     extern char hankaku[4096];
     struct TASK *task = task_now();
     char *nihongo = (char *) *((int *) 0xfe8);
+    char *font;
+    int k, t;
 
     if (task->langmode == 0) {
-        while (*str != '\0'){
+        while (*str != '\0') {
             putfont8(vram, xsize, x, y, c, (hankaku + *str * 16));
             x += 8;
             str++;
@@ -54,7 +56,36 @@ void putfonts8_asc(char *vram, int xsize, int x, int y, char c, unsigned char *s
     }
     if (task->langmode == 1) {
         while (*str != '\0') {
-            putfont8(vram, xsize, x, y, c, (nihongo + *str * 16));
+            if (task->langbyte1 == 0) {
+                //2byte有り
+                if ((*str >= 0x81 && *str <= 0x9f) || (*str >= 0xe0 && *str <= 0xfc))
+                    task->langbyte1 = *str;
+
+                else
+                    putfont8(vram, xsize, x, y, c, nihongo + *str * 16);
+
+            } else {
+                if (task->langbyte1 >= 0x81 && task->langbyte1 <= 0x9f)
+                    k = (task->langbyte1 - 0x81) * 2;
+
+                else
+                    k = (task->langbyte1 - 0xe0) * 2 + 62;
+
+                if (*str >= 0x40 && *str <= 0x7e)
+                    t = *str - 0x40;
+
+                else if (*str >= 0x80 && *str <= 0x9e)
+                    t = *str - 0x80 + 63;
+
+                else {
+                    t = *str - 0x9f;
+                    k++;
+                }
+                task->langbyte1 = 0;
+                font = nihongo + 256 * 16 + (k * 94 + t) * 32;
+                putfont8(vram, xsize, x - 8, y, c, font); //左半分
+                putfont8(vram, xsize, x, y, c, font + 16); //右半分
+            }
             x += 8;
             str++;
         }
