@@ -10,10 +10,10 @@ LS = ../../../scripts/app.lds
 
 TARGET_DIR = ../../../bin/app
 DIST_DIR = $(TARGET_DIR)/dist
-TMP_DIR = $(TARGET_DIR)/tmp/walk
+TMP_DIR = $(TARGET_DIR)/tmp/iroha
 
-APP = $(DIST_DIR)/walk.hrb
-APP_SRC = walk.c
+APP = $(DIST_DIR)/iroha.hrb
+APP_SRC = iroha.c
 
 INCLUDE = -I ../lib/include
 

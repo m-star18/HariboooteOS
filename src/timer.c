@@ -25,6 +25,7 @@ void init_pit(void) {
 
 struct TIMER *timer_alloc(void) {
     int i;
+
     for (i = 0; i < MAX_TIMER; i++) {
         if (timerctl.timers0[i].flags == 0) {
             timerctl.timers0[i].flags = TIMER_FLAGS_ALLOC;
@@ -52,7 +53,7 @@ void timer_settime(struct TIMER *timer, unsigned int timeout) {
     timer->timeout = timerctl.count + timeout;
     timer->flags = TIMER_FLAGS_USING;
 
-    e = io_load_eflags();
+    e = io_load_eflags(); //割り込みフラグを覚えておくため
     io_cli();
 
     //先頭
@@ -158,6 +159,7 @@ void inthandler20(int *esp) {
         timer->flags = TIMER_FLAGS_ALLOC;
         if (timer != task_timer)
             fifo32_put(timer->fifo, timer->data);
+
         else
             ts = 1;
         timer = timer->next;

@@ -2,8 +2,9 @@
 
 struct SHTCTL *shtctl_init(struct MEMMAN *memman, unsigned char *vram, int xsize, int ysize) {
     struct SHTCTL *ctl;
-    ctl = (struct SHTCTL *) memman_alloc_4k(memman, sizeof(struct SHTCTL));
+    int i;
 
+    ctl = (struct SHTCTL *) memman_alloc_4k(memman, sizeof(struct SHTCTL));
     if (ctl == 0)
         goto err;
 
@@ -18,7 +19,7 @@ struct SHTCTL *shtctl_init(struct MEMMAN *memman, unsigned char *vram, int xsize
     ctl->ysize = ysize;
 
     ctl->top = -1; //1枚もない
-    for (int i = 0; i < MAX_SHEETS; i++) {
+    for (i = 0; i < MAX_SHEETS; i++) {
         ctl->sheets0[i].flags = 0;
         ctl->sheets0[i].ctl = ctl;
     }
@@ -29,8 +30,9 @@ err:
 
 struct SHEET *sheet_alloc(struct SHTCTL *ctl) {
     struct SHEET *sht;
+    int i;
 
-    for (int i = 0; i < MAX_SHEETS; i++) {
+    for (i = 0; i < MAX_SHEETS; i++) {
         if (ctl->sheets0[i].flags == 0) {
             sht = &ctl->sheets0[i];
             sht->flags = SHEET_USE;
@@ -39,9 +41,7 @@ struct SHEET *sheet_alloc(struct SHTCTL *ctl) {
 
             return sht;
         }
-
     }
-
     return 0; //確保失敗
 }
 
@@ -58,11 +58,8 @@ void sheet_updown(struct SHEET *sht, int height) {
     struct SHTCTL *ctl = sht->ctl;
 
     //指定が高すぎたら一番上になるように修正
-    if (height > ctl ->top)
-        height = ctl->top + 1;
-
-    if (height < -1)
-        height = -1;
+    if (height > ctl ->top) height = ctl->top + 1;
+    if (height < -1) height = -1;
 
     sht->height = height;
 
@@ -89,10 +86,9 @@ void sheet_updown(struct SHEET *sht, int height) {
             sheet_refreshmap(ctl, sht->vx0, sht->vy0, sht->vx0 + sht->bxsize, sht->vy0 + sht->bysize, 0);
             sheet_refreshsub(ctl, sht->vx0, sht->vy0, sht->vx0 + sht->bxsize, sht->vy0 + sht->bysize, 0, old - 1);
         }
-    }
 
-    //もとよりも高くなる
-    else if (old < height) {
+        //もとよりも高くなる
+    } else if (old < height) {
         //元が非表示ではなかった
         if (old >= 0) {
             //間のシートを引き下げる
@@ -102,7 +98,7 @@ void sheet_updown(struct SHEET *sht, int height) {
             }
             ctl->sheets[height] = sht;
 
-        //非表示から表示状態へ
+            //非表示から表示状態へ
         } else {
             //移動先を開けるために、topと挿入位置の間にあるシートを引き上げる
             for (h = ctl->top; h >= height; h--) {
@@ -178,9 +174,9 @@ void sheet_refreshsub(struct SHTCTL *ctl, int vx0, int vy0, int vx1, int vy1, in
                 }
 
                 vx = sht->vx0 + bx;
-                p = (int *) &map[vy * ctl->xsize + vx];
-                q = (int *) &vram[vy * ctl->xsize + vx];
-                r = (int *) &buf[by * sht->bxsize + bx];
+                p = (int *) & map[vy * ctl->xsize + vx];
+                q = (int *) & vram[vy * ctl->xsize + vx];
+                r = (int *) & buf[by * sht->bxsize + bx];
 
                 //4の倍数部分
                 for (i = 0; i < i1; i++) {
@@ -210,6 +206,7 @@ void sheet_refreshsub(struct SHTCTL *ctl, int vx0, int vy0, int vx1, int vy1, in
                         vram[vy * ctl->xsize + vx] = buf[by * sht->bxsize + bx];
                 }
             }
+
         } else { //1byte型
             for (by = by0; by < by1; by++) {
                 vy = sht->vy0 + by;
@@ -241,9 +238,9 @@ void sheet_slide(struct SHEET *sht, int vx0, int vy0) {
 
 void sheet_free(struct SHEET *sht) {
     struct SHTCTL *ctl = sht->ctl;
+
     if (sht->height >= 0)
         sheet_updown(sht, -1);
-
     sht->flags = 0;
 }
 
@@ -298,6 +295,7 @@ void sheet_refreshmap(struct SHTCTL *ctl, int vx0, int vy0, int vx1, int vy1, in
                     for (bx = 0; bx < bx1; bx++)
                         p[bx] = sid4;
                 }
+
             } else {
                 for (by = 0; by < by1; by++) {
                     vy = sht->vy0 + by;

@@ -8,7 +8,7 @@ INCLUDE = -I include -I src/tools/stdlibc/include
 LD = ld
 LFLAGS = -m elf_i386
 
-QEMU = qemu-system-i386
+QEMU = qemu-system-x86_64
 
 TARGET_DIR = bin
 LST_DIR = $(TARGET_DIR)/lst
@@ -28,9 +28,9 @@ SYSTEM_IMG = bin/haribooote.bin
 ASMLIB_SRC = src/asm/asm_func.s
 ASMLIB = $(TARGET_DIR)/asm_func.o
 
-IPL_SRC = src/asm/boot/ipl10.s
+IPL_SRC = src/asm/boot/ipl20.s
 IPL_LS = scripts/ipl.lds
-IPL = $(TARGET_DIR)/ipl10.bin
+IPL = $(TARGET_DIR)/ipl20.bin
 
 OSL_SRC = src/asm/boot/asmhead.s
 OSL_LS = scripts/asmhead.lds
@@ -42,6 +42,8 @@ STDLIBC = $(STDLIBC_DIR)/bin/stdlibc.o
 
 FONT_DIR = src/tools/makefont
 FONT = $(FONT_DIR)/bin/hankaku.o
+
+JPFONT = src/tools/font/nihongo.fnt
 
 EXCLUDE_EXLIB_DEP_FILE = *.swp
 
@@ -77,12 +79,13 @@ $(STDLIBC) : $(shell find $(STDLIBC_DIR) -type f -not -name '$(EXCLUDE_EXLIB_DEP
 	@echo [Dependent Files] STDLIBC: $^
 	cd $(STDLIBC_DIR); make all
 
-$(IMG): $(IPL) $(OSL) $(OS) apps
+$(IMG): $(IPL) $(OSL) $(OS) apps $(JPFONT)
 	cat $(OSL) $(OS) > $(SYSTEM_IMG)
 	mformat -f 1440 -B $(IPL) -C -i $(IMG) ::
 	mcopy $(SYSTEM_IMG) -i $(IMG) ::
 	$(foreach x, $(shell find $(APP_TARGET_DIR) -type f), $(call copy_app, $(x)))
-	mcopy Makefile -i $(IMG) ::
+	mcopy $(IPL_SRC) -i $(IMG) ::
+	mcopy $(JPFONT) -i $(IMG) ::
 
 $(OS): $(addprefix $(TARGET_DIR)/, $(notdir $(OS_SRC:.c=.o))) $(STDLIBC) $(ASMLIB) $(FONT)
 	ld $(LFLAGS) -o $@ -T $(OS_LS) -e HariMain --oformat=binary -Map=$(OS_MMAP) $^

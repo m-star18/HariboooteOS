@@ -7,7 +7,7 @@ void wait_KBC_sendready(void) {
     //キーボードコントローラの準備ができるまで待つ
     //port 0x0064の2bit目が0になったら準備完了なので抜ける
 
-    for(;;)
+    for (;;)
         if ((io_in8(PORT_KEYSTA) & KEYSTA_SEND_NOTREADY) == 0) break;
 }
 
@@ -29,7 +29,7 @@ void init_keyboard(struct FIFO32 *fifo, int data0) {
 void inthandler21(int *esp) {
     struct BOOTINFO *binfo = (struct BOOTINFO *) ADR_BOOTINFO;
     unsigned char data;
-    unsigned char s[128];
+    unsigned char str[128];
 
     //IRQ-01に受付完了を通知
     io_out8(PIC0_OCW2, 0x61);

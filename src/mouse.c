@@ -24,13 +24,12 @@ void enable_mouse(struct FIFO32 *fifo, int data0, struct MOUSE_DEC *mdec) {
 
 int mouse_decode(struct MOUSE_DEC *mdec, unsigned char dat) {
     if (mdec->phase == 0) {
-        if (dat == 0xfa) mdec->phase++;
+        if (dat == 0xfa)
+            mdec->phase++;
 
         return 0;
     }
-
     if (mdec->phase == 1) {
-
         //正しいデータかチェック
         //0xc8 = 11001000
         //上位4bitはマウスの動きに合わせて0-3の範囲で変化する
@@ -43,14 +42,12 @@ int mouse_decode(struct MOUSE_DEC *mdec, unsigned char dat) {
 
         return 0;
     }
-
     if (mdec->phase == 2) {
         mdec->buf[1] = dat;
         mdec->phase = 3;
 
         return 0;
     }
-
     if (mdec->phase == 3) {
         mdec->buf[2] = dat;
         mdec->phase = 1;
@@ -72,7 +69,6 @@ int mouse_decode(struct MOUSE_DEC *mdec, unsigned char dat) {
 
         return 1;
     }
-
     return -1;
 }
 

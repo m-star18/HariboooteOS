@@ -6,14 +6,14 @@ CFLAGS = -fno-pie -no-pie -nostdlib -m32 -fno-builtin -O0 -fno-common
 LFLAGS = -m elf_i386
 
 LIB = $(TARGET_DIR)/lib/apilib.lib
-LS = ../../../scripts/app.lds
+LS = ../../../scripts/app_sosu.lds
 
 TARGET_DIR = ../../../bin/app
 DIST_DIR = $(TARGET_DIR)/dist
-TMP_DIR = $(TARGET_DIR)/tmp/walk
+TMP_DIR = $(TARGET_DIR)/tmp/typeipl
 
-APP = $(DIST_DIR)/walk.hrb
-APP_SRC = walk.c
+APP = $(DIST_DIR)/typeipl.hrb
+APP_SRC = typeipl.c
 
 INCLUDE = -I ../lib/include
 
