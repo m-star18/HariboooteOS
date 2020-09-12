@@ -606,8 +606,19 @@ int *hrb_api(int edi, int esi, int ebp, int esp, int ebx, int edx, int ecx, int 
 
         sht = (struct SHEET *) (ebx & 0xfffffffe);
         hrb_api_linewin(sht, eax, ecx, esi, edi, ebp);
-        if ((ebx & 1) == 0)
+        if ((ebx & 1) == 0) {
+            if ((ebx & 1) == 0) {
+                i = eax;
+                eax = esi;
+                esi = i;
+            }
+            if (ecx > edi) {
+                i = ecx;
+                ecx = edi;
+                edi = i;
+            }
             sheet_refresh(sht, esi, edi, esi + 1, edi + 1);
+        }
 
     } else if (edx == 14) {
         /* ウインドウを閉じる
