@@ -13,10 +13,10 @@ STDLIB = $(STDLIB_DIR)/bin/stdlibc.o
 
 TARGET_DIR = ../../../bin/app
 DIST_DIR = $(TARGET_DIR)/dist
-TMP_DIR = $(TARGET_DIR)/tmp/invader
+TMP_DIR = $(TARGET_DIR)/tmp/tview
 
-APP = $(DIST_DIR)/invader.hrb
-APP_SRC = invader.c
+APP = $(DIST_DIR)/tview.hrb
+APP_SRC = tview.c
 
 INCLUDE = -I ../lib/include -I $(STDLIB_DIR)/include
 
