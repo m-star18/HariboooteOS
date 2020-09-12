@@ -44,6 +44,7 @@ FONT_DIR = src/tools/makefont
 FONT = $(FONT_DIR)/bin/hankaku.o
 
 JPFONT = src/tools/font/nihongo.fnt
+JPFONT_TEST_FILE = src/tools/font/sjis.txt src/tools/font/euc.txt
 
 EXCLUDE_EXLIB_DEP_FILE = *.swp
 
@@ -54,6 +55,13 @@ APP_TARGET_DIR = $(TARGET_DIR)/app/dist
 APP_SRC_DIR = src/app
 APP_SRC = $(shell find $(APP_SRC_DIR) -type f)
 APP_DIRS = $(shell find $(APP_SRC_DIR) -maxdepth 1 -type d -not -path $(APP_SRC_DIR))
+
+PICT1 = src/tools/pictdata/fujisan.jpg
+PICT2 = src/tools/pictdata/night.bmp
+MML1 = src/tools/mmldata/daigo.mml
+MML2 = src/tools/mmldata/daiku.mml
+MML3 = src/tools/mmldata/fujisan.mml
+MML4 = src/tools/mmldata/kirakira.mml
 
 define make_app
 	cd $1; make;
@@ -79,13 +87,20 @@ $(STDLIBC) : $(shell find $(STDLIBC_DIR) -type f -not -name '$(EXCLUDE_EXLIB_DEP
 	@echo [Dependent Files] STDLIBC: $^
 	cd $(STDLIBC_DIR); make all
 
-$(IMG): $(IPL) $(OSL) $(OS) apps $(JPFONT)
+$(IMG): $(IPL) $(OSL) $(OS) apps $(JPFONT) $(JPFONT_TEST_FILE)
 	cat $(OSL) $(OS) > $(SYSTEM_IMG)
 	mformat -f 1440 -B $(IPL) -C -i $(IMG) ::
 	mcopy $(SYSTEM_IMG) -i $(IMG) ::
 	$(foreach x, $(shell find $(APP_TARGET_DIR) -type f), $(call copy_app, $(x)))
 	mcopy $(IPL_SRC) -i $(IMG) ::
 	mcopy $(JPFONT) -i $(IMG) ::
+	mcopy $(JPFONT_TEST_FILE) -i $(IMG) ::
+	mcopy $(PICT1) -i $(IMG) ::
+	mcopy $(PICT2) -i $(IMG) ::
+	mcopy $(MML1) -i $(IMG) ::
+	mcopy $(MML2) -i $(IMG) ::
+	mcopy $(MML3) -i $(IMG) ::
+	mcopy $(MML4) -i $(IMG) ::
 
 $(OS): $(addprefix $(TARGET_DIR)/, $(notdir $(OS_SRC:.c=.o))) $(STDLIBC) $(ASMLIB) $(FONT)
 	ld $(LFLAGS) -o $@ -T $(OS_LS) -e HariMain --oformat=binary -Map=$(OS_MMAP) $^
