@@ -1,4 +1,5 @@
 #include "apilib.h"
+#include "stdlibc.h"
 
 void putstr(int win, char *winbuf, int x, int y, int col, unsigned char *s);
 void wait(int i, int timer, char *keyflag);
@@ -153,6 +154,7 @@ next_group:
                     /* hit ! */
                     score += point;
                     point++;
+                    _sprintf(str, "%08d", score);
                     putstr(win, winbuf, 10, 0, 7, str);
                     if (high < score) {
                         high = score;
@@ -193,7 +195,7 @@ void putstr(int win, char *winbuf, int x, int y, int col, unsigned char *str) {
     x = x * 8 + 8;
     y = y * 16 + 29;
     x0 = x;
-    for (i=0; str[i]!='\0'; ++i);  /* sの文字数を数える */
+    _strlen(str); /* sの文字数を数える */
     api_boxfillwin(win + 1, x, y, x + i * 8 - 1, y + 15, 0);
     q = winbuf + y * 336;
     t[1] = 0;
