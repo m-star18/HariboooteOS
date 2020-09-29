@@ -193,6 +193,7 @@ file_error:
                 p++;
                 l += l / 2;
             }
+
         } else if (*p == 'T') /* テンポ指定 */
             t = _strtol(p + 1, &p, 10);
 
@@ -241,6 +242,7 @@ syntax_error:
 
 void waittimer(int timer, int time) {
     int i;
+
     api_settimer(timer, time);
     for (;;) {
         i = api_getkey(1);
