@@ -2,6 +2,7 @@
 
 CC = gcc
 CFLAGS = -fno-pie -no-pie -nostdlib -m32 -fno-builtin -O0 -fno-common
+INCLUDE = -I ../lib/include -I $(STDLIB_DIR)/include
 
 LFLAGS = -m elf_i386
 
@@ -13,12 +14,10 @@ STDLIB = $(STDLIB_DIR)/bin/stdlibc.o
 
 TARGET_DIR = ../../../bin/app
 DIST_DIR = $(TARGET_DIR)/dist
-TMP_DIR = $(TARGET_DIR)/tmp/invader
+TMP_DIR = $(TARGET_DIR)/tmp/mmlplay
 
-APP = $(DIST_DIR)/invader.hrb
-APP_SRC = invader.c
-
-INCLUDE = -I ../lib/include -I $(STDLIB_DIR)/include
+APP = $(DIST_DIR)/mmlplay.hrb
+APP_SRC = mmlplay.c
 
 $(APP): $(APP_SRC) $(LIB)
 	mkdir -p $(DIST_DIR)
@@ -28,9 +27,6 @@ $(APP): $(APP_SRC) $(LIB)
 
 $(LIB):
 	cd ../lib; make
-
-$(STDLIB):
-	cd $(STDLIB_DIR); make
 
 clean:
 	rm -rf $(TMP_DIR)
