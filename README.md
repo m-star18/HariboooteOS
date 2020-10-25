@@ -12,11 +12,11 @@
 
 ## Prerequisites
 
-OS: Linux Mint 19.1 Cinnamon <br>
-Cコンパイラ: gcc 5.4.0 <br>
-アセンブラ: Gas(GNU assembler) 2.26.1 <br>
-リンカ: GNU ld 2.26.1 <br>
-x86エミュレータ: QEMU2.5.0 <br>
+OS:　Linux Mint 19.1 Cinnamon <br>
+Cコンパイラ:　gcc 5.4.0 <br>
+アセンブラ:　Gas(GNU assembler) 2.26.1 <br>
+リンカ:　GNU ld 2.26.1 <br>
+x86エミュレータ:　QEMU2.5.0 <br>
 
 ## Usage
 
