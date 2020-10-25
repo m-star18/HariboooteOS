@@ -1,5 +1,3 @@
-#Makefile
-
 CC = gcc
 CWARN = -Wall -Wno-pointer-sign -Wno-unused-variable
 CFLAGS = -fno-pie -no-pie -nostdlib -m32 -fno-builtin -O0 $(CWARN)
