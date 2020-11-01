@@ -73,15 +73,15 @@ endef
 
 all: $(IMG)
 
-apps : $(APP_SRC)
+apps: $(APP_SRC)
 	@echo [Application] build
 	$(foreach x, $(APP_DIRS), $(call make_app, $(x)))
 
-$(FONT) : $(shell find $(FONT_DIR) -type f -not -name '$(EXCLUDE_EXLIB_DEP_FILE)' -not -name '$(notdir $(FONT))')
+$(FONT): $(shell find $(FONT_DIR) -type f -not -name '$(EXCLUDE_EXLIB_DEP_FILE)' -not -name '$(notdir $(FONT))')
 	@echo [Dependent Files] FONT:  $^
 	cd $(FONT_DIR); make
 
-$(STDLIBC) : $(shell find $(STDLIBC_DIR) -type f -not -name '$(EXCLUDE_EXLIB_DEP_FILE)' -not -name '$(notdir $(STDLIBC))')
+$(STDLIBC): $(shell find $(STDLIBC_DIR) -type f -not -name '$(EXCLUDE_EXLIB_DEP_FILE)' -not -name '$(notdir $(STDLIBC))')
 	@echo [Dependent Files] STDLIBC: $^
 	cd $(STDLIBC_DIR); make all
 
