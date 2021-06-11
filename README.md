@@ -21,3 +21,7 @@ x86エミュレータ: QEMU2.5.0 <br>
 
 1. Clone this repository.
 2. Run `make run` to start the HariboooteOS.(QEMU)
+
+## License
+
+This program is released under Unlicense.
