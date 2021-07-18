@@ -11,7 +11,6 @@
 
 ## Prerequisites
 
-OS: Arch Linux <br>
 Cコンパイラ: gcc 5.4.0 <br>
 アセンブラ: Gas(GNU assembler) 2.26.1 <br>
 リンカ: GNU ld 2.26.1 <br>
