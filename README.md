@@ -1,13 +1,11 @@
 # HariboooteOS
 
-## Screenshot
-
-![sample.png](assets/sample.png)
-
-[![Github issues](https://img.shields.io/github/issues/m-star18/HariboooteOS)](https://github.com/m-star18/HariboooteOS/issues)
+[![Gthub issues](https://img.shields.io/github/issues/m-star18/HariboooteOS)](https://github.com/m-star18/HariboooteOS/issues)
 [![Github stars](https://img.shields.io/github/stars/m-star18/HariboooteOS)](https://github.com/m-star18/HariboooteOS/stargazers)
 [![Github top language](https://img.shields.io/github/languages/top/m-star18/HariboooteOS)](https://github.com/m-star18/HariboooteOS/)
 [![Github license](https://img.shields.io/github/license/m-star18/HariboooteOS)](https://github.com/m-star18/HariboooteOS/)
+
+![sample.png](assets/sample.png)
 
 ## Prerequisites
 
